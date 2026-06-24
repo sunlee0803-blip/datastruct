@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>파이썬 리스트 시각화 학습 도구</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            display: flex;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: #f5f6fa;
+        }
+        
+        /* 왼쪽 컨테이너 (조작 및 코드 누적 영역) */
+        .left-container {
+            width: 40%;
+            padding: 25px;
+            background-color: #1a1e26;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.1);
+        }
+        .panel-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #61afef;
+            margin-bottom: 5px;
+        }
+
+        /* 컨트롤 박스 스타일 */
+        .control-box {
+            background-color: #2e3440;
+            padding: 12px 15px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .control-label {
+            font-size: 14px;
+            color: #d8dee9;
+            font-weight: bold;
+        }
+        .input-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .input-box {
+            flex: 1;
+            background-color: #3b4252;
+            color: #a3be8c;
+            border: 2px solid #4c566a;
+            padding: 10px;
+            font-size: 16px;
+            font-family: monospace;
+            outline: none;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .input-box:focus {
+            border-color: #88c0d0;
+        }
+        .input-short {
+            width: 90px;
+            flex: none;
+        }
+        
+        button {
+            width: 100%;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        #appendBtn { background-color: #a3be8c; color: #2e3440; }
+        #appendBtn:hover { background-color: #8fbcbb; }
+        #insertBtn { background-color: #ebcb8b; color: #2e3440; }
+        #insertBtn:hover { background-color: #e5b96a; }
+        #removeBtn { background-color: #d08770; color: white; }
+        #removeBtn:hover { background-color: #c17760; }
+        #popBtn { background-color: #bf616a; color: white; }
+        #popBtn:hover { background-color: #ab525a; }
+
+        /* 대형 코드 출력창 (스크롤 활성화) */
+        .code-box {
+            flex: 1;
+            min-height: 150px;
+            padding: 20px;
+            background-color: #21252b;
+            border-radius: 8px;
+            font-family: 'Consolas', monospace;
+            font-size: 16px;
+            line-height: 1.8;
+            border: 1px solid #3e4452;
+            overflow-y: auto;
+        }
+        .code-line {
+            margin-bottom: 4px;
+            white-space: pre-wrap;
+        }
+        .comment { color: #6a9955; }
+        .variable { color: #e06c75; }
+        .bracket { color: #abb2bf; }
+        .method { color: #dcdcaa; }
+        .string { color: #98c379; }
+        .number { color: #d19a66; }
+
+        /* 오른쪽 컨테이너 (결과 화면 영역) */
+        .right-container {
+            width: 60%;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+        }
+        .top-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1a1e26;
+            margin-bottom: 25px;
+        }
+        .right-box {
+            padding: 30px;
+            background-color: white;
+            border-radius: 12px;
+            min-height: 250px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+        .initial-message {
+            font-style: italic;
+            color: #999;
+            font-size: 18px;
+        }
+        .result-content {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            width: 100%;
+        }
+        .item-block {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        .box-visual {
+            width: 75px;
+            height: 75px;
+            background-color: #4b7bec;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(75, 123, 236, 0.2);
+            animation: popIn 0.2s ease-out;
+            word-break: break-all;
+            padding: 5px;
+            text-align: center;
+        }
+        .index-visual {
+            font-family: monospace;
+            color: #7f8c8d;
+            font-size: 16px;
+        }
+        @keyframes popIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="left-container">
+        <div class="panel-title">🕹️ Control & Code History</div>
+        
+        <div class="control-box">
+            <div class="control-label">1. 맨 뒤에 값 붙이기 (Append)</div>
+            <div class="input-row">
+                <input type="text" class="input-box" id="appendInput" placeholder="값 입력">
+                <button id="appendBtn" style="width:140px;">append() 실행</button>
+            </div>
+        </div>
+
+        <div class="control-box">
+            <div class="control-label" id="insertLabel">2. 원하는 위치에 끼워넣기 (Insert) - 입력 가능 범위: [0]</div>
+            <div class="input-row">
+                <input type="number" class="input-box input-short" id="insertIdx" placeholder="인덱스" min="0" value="0">
+                <input type="text" class="input-box" id="insertInput" placeholder="값 입력">
+                <button id="insertBtn" style="width:140px;">insert() 실행</button>
+            </div>
+        </div>
+
+        <div class="control-box">
+            <div class="control-label">3. 지정한 값 찾아서 지우기 (Remove)</div>
+            <div class="input-row">
+                <input type="text" class="input-box" id="removeInput" placeholder="지울 값 입력">
+                <button id="removeBtn" style="width:140px;">remove() 실행</button>
+            </div>
+        </div>
+
+        <div class="control-box">
+            <div class="control-label">4. 맨 뒤에 값 제거 (Pop)</div>
+            <button id="popBtn">pop() 실행</button>
+        </div>
+
+        <div class="code-box" id="codeLog">
+            <div class="code-line"><span class="variable">my_list</span> = <span class="bracket">[ ]</span></div>
+        </div>
+    </div>
+
+    <div class="right-container">
+        <div class="top-title">📦 메모리 배열 (my_list)</div>
+        <div class="right-box" id="resultBox">
+            <div id="initialMessage" class="initial-message">배열이 비어 있습니다. 값을 추가해 보세요!</div>
+            <div id="resultContent" class="result-content"></div>
+        </div>
+    </div>
+
+    <script>
+        var itemsArray = [];
+        
+        var appendInput = document.getElementById("appendInput");
+        var insertIdx = document.getElementById("insertIdx");
+        var insertInput = document.getElementById("insertInput");
+        var removeInput = document.getElementById("removeInput");
+        var insertLabel = document.getElementById("insertLabel");
+        
+        var appendBtn = document.getElementById("appendBtn");
+        var insertBtn = document.getElementById("insertBtn");
+        var removeBtn = document.getElementById("removeBtn");
+        var popBtn = document.getElementById("popBtn");
+        
+        var initialMessage = document.getElementById("initialMessage");
+        var resultContent = document.getElementById("resultContent");
+        var codeLog = document.getElementById("codeLog");
+
+        // 엔터키 처리
+        appendInput.addEventListener("keydown", function(e) { if (e.key === "Enter") appendAction(); });
+        insertInput.addEventListener("keydown", function(e) { if (e.key === "Enter") insertAction(); });
+        removeInput.addEventListener("keydown", function(e) { if (e.key === "Enter") removeAction(); });
+
+        // 버튼 클릭 이벤트
+        appendBtn.addEventListener("click", appendAction);
+        insertBtn.addEventListener("click", insertAction);
+        removeBtn.addEventListener("click", removeAction);
+        popBtn.addEventListener("click", popAction);
+
+        // Append 기능
+        function appendAction() {
+            var value = appendInput.value.trim();
+            if (value === "") { alert("값을 입력해 주세요."); return; }
+
+            var displayValue = isNaN(value) ? '"' + value + '"' : value;
+            var valueClass = isNaN(value) ? 'string' : 'number';
+
+            logCode('<span class="variable">my_list</span>.<span class="method">append</span><span class="bracket">(</span><span class="' + valueClass + '">' + displayValue + '</span><span class="bracket">)</span>');
+
+            itemsArray.push(value);
+            renderBlocks();
+            appendInput.value = "";
+            appendInput.focus();
+        }
+
+        // Insert 기능 (오류 검증 로직 추가)
+        function insertAction() {
+            var idx = parseInt(insertIdx.value, 10);
+            var value = insertInput.value.trim();
+
+            if (isNaN(idx) || idx < 0) { alert("올바른 인덱스 번호를 입력해 주세요."); return; }
+            if (value === "") { alert("값을 입력해 주세요."); return; }
+
+            // [핵심 수정] 인덱스가 현재 리스트 크기를 초과해 혼란을 주는 상황 차단
+            if (idx > itemsArray.length) { 
+                alert("현재 리스트 크기를 초과한 인덱스입니다!\n넣을 수 있는 최대 인덱스는 [" + itemsArray.length + "] 입니다."); 
+                insertIdx.value = itemsArray.length;
+                insertIdx.focus();
+                return; 
+            }
+
+            var displayValue = isNaN(value) ? '"' + value + '"' : value;
+            var valueClass = isNaN(value) ? 'string' : 'number';
+
+            logCode('<span class="variable">my_list</span>.<span class="method">insert</span><span class="bracket">(</span><span class="number">' + idx + '</span><span class="bracket">, </span><span class="' + valueClass + '">' + displayValue + '</span><span class="bracket">)</span>');
+
+            itemsArray.splice(idx, 0, value);
+            renderBlocks();
+            
+            insertInput.value = "";
+            updateInsertLabel();
+            insertInput.focus();
+        }
+
+        // Remove 기능
+        function removeAction() {
+            var value = removeInput.value.trim();
+            if (value === "") { alert("지울 값을 입력해 주세요."); return; }
+
+            var displayValue = isNaN(value) ? '"' + value + '"' : value;
+            var valueClass = isNaN(value) ? 'string' : 'number';
+
+            logCode('<span class="variable">my_list</span>.<span class="method">remove</span><span class="bracket">(</span><span class="' + valueClass + '">' + displayValue + '</span><span class="bracket">)</span>');
+
+            var index = itemsArray.indexOf(value);
+
+            if (index !== -1) {
+                itemsArray.splice(index, 1);
+                renderBlocks();
+            } else {
+                logCode('<span class="comment"># ValueError: list.remove(x): x not in list</span>');
+                alert("리스트 안에 '" + value + "' 값이 존재하지 않습니다.");
+            }
+
+            removeInput.value = "";
+            updateInsertLabel();
+            removeInput.focus();
+        }
+
+        // Pop 기능
+        function popAction() {
+            logCode('<span class="variable">my_list</span>.<span class="method">pop</span><span class="bracket">()</span>');
+
+            if (itemsArray.length > 0) {
+                itemsArray.pop();
+                renderBlocks();
+            } else {
+                logCode('<span class="comment"># IndexError: pop from empty list</span>');
+                alert("배열이 이미 비어 있습니다.");
+            }
+            updateInsertLabel();
+        }
+
+        // 로그 기록 공통 함수
+        function logCode(htmlContent) {
+            var newLine = document.createElement("div");
+            newLine.className = "code-line";
+            newLine.innerHTML = htmlContent;
+            codeLog.appendChild(newLine);
+            codeLog.scrollTop = codeLog.scrollHeight;
+        }
+
+        // Insert 라벨 안내 문구 실시간 갱신 함수
+        function updateInsertLabel() {
+            var maxIdx = itemsArray.length;
+            insertLabel.innerText = "2. 원하는 위치에 끼워넣기 (Insert) - 입력 가능 범위: [0] ~ [" + maxIdx + "]";
+            insertIdx.value = maxIdx;
+        }
+
+        // 오른쪽 화면 갱신
+        function renderBlocks() {
+            if (itemsArray.length === 0) {
+                initialMessage.style.display = "block";
+                resultContent.innerHTML = "";
+                updateInsertLabel();
+                return;
+            }
+
+            initialMessage.style.display = "none";
+            var htmlString = "";
+            for (var i = 0; i < itemsArray.length; i++) {
+                htmlString += '<div class="item-block">' +
+                              '  <div class="box-visual">' + itemsArray[i] + '</div>' +
+                              '  <div class="index-visual">[' + i + ']</div>' +
+                              '</div>';
+            }
+            resultContent.innerHTML = htmlString;
+            updateInsertLabel();
+        }
+    </script>
+</body>
+</html>

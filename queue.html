@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>파이썬 자료구조 시각화 - 큐 (Queue)</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { display: flex; height: 100vh; margin: 0; font-family: 'Malgun Gothic', sans-serif; background-color: #f5f6fa; }
+        
+        /* 왼쪽 패널 */
+        .left-container {
+            width: 35%; background-color: #1a1e26; color: white; padding: 20px;
+            display: flex; flex-direction: column; gap: 15px; box-shadow: 5px 0 15px rgba(0,0,0,0.1);
+        }
+        .panel-title { font-size: 22px; font-weight: bold; color: #61afef; }
+        
+        .control-box { background-color: #2e3440; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; gap: 8px; }
+        .control-label { font-size: 14px; color: #d8dee9; font-weight: bold; }
+        .input-row { display: flex; gap: 10px; align-items: center; }
+        .input-box {
+            flex: 1; background-color: #3b4252; color: #a3be8c; border: 2px solid #4c566a;
+            padding: 10px; font-size: 16px; font-family: monospace; outline: none; border-radius: 6px; text-align: center;
+        }
+        .input-box:focus { border-color: #88c0d0; }
+        
+        button { width: 100%; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: bold; transition: 0.2s; }
+        #enqueueBtn { background-color: #a3be8c; color: #2e3440; }
+        #enqueueBtn:hover { background-color: #8fbcbb; }
+        #dequeueBtn { background-color: #bf616a; color: white; }
+        #dequeueBtn:hover { background-color: #ab525a; }
+
+        .code-box {
+            flex: 1; min-height: 150px; padding: 20px; background-color: #21252b; border-radius: 8px;
+            font-family: 'Consolas', monospace; font-size: 16px; line-height: 1.8; border: 1px solid #3e4452; overflow-y: auto;
+        }
+        .code-line { margin-bottom: 4px; white-space: pre-wrap; }
+        .comment { color: #6a9955; } .variable { color: #e06c75; } .bracket { color: #abb2bf; } .method { color: #dcdcaa; } .string { color: #98c379; } .number { color: #d19a66; }
+
+        /* 오른쪽 패널 */
+        .right-container { width: 65%; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        /* [수정] 한자 제거 및 이모티콘 변경 */
+        .section-title { font-size: 24px; font-weight: bold; color: #1a1e26; margin-bottom: 5px; }
+        .section-subtitle { font-size: 14px; color: #7f8c8d; margin-bottom: 40px; font-weight: bold; }
+        
+        /* 큐 파이프 통 */
+        .queue-pipe {
+            width: 550px; height: 110px; 
+            border-top: 4px solid #4b7bec; border-bottom: 4px solid #4b7bec;
+            background-color: white; display: flex;
+            align-items: center; justify-content: flex-start; padding: 10px; gap: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); position: relative;
+        }
+        
+        .queue-pipe::before {
+            content: "➔ 출구 (Front)"; position: absolute; left: -110px; font-size: 13px; color: #e53935; font-weight: bold;
+        }
+        .queue-pipe::after {
+            content: "➔ 입구 (Rear)"; position: absolute; right: -100px; font-size: 13px; color: #43a047; font-weight: bold;
+        }
+
+        /* 데이터 상자 */
+        .queue-block {
+            width: 70px; height: 70px; background-color: #4b7bec; color: white;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            border-radius: 8px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 6px rgba(75, 123, 236, 0.2);
+            position: relative; transition: all 0.3s ease;
+        }
+        
+        .queue-block.front-block { background-color: #a55eea; box-shadow: 0 4px 10px rgba(165, 94, 234, 0.4); }
+        .queue-block.new-entry { animation: slideIn 0.3s ease-out forwards; }
+        .queue-block.popping-out {
+            background-color: #bf616a !important;
+            box-shadow: 0 4px 12px rgba(191, 97, 106, 0.5) !important;
+            animation: slideOut 0.3s ease-in forwards;
+        }
+        
+        .pointer-tag { position: absolute; font-size: 11px; font-weight: bold; font-family: monospace; padding: 2px 4px; border-radius: 4px; width: max-content; }
+        .front-tag { top: -25px; background-color: #a55eea; color: white; }
+        .rear-tag { bottom: -25px; background-color: #20bf6b; color: white; }
+
+        .empty-msg { font-style: italic; color: #aaa; font-size: 18px; margin: auto; text-align: center; }
+
+        @keyframes slideIn {
+            from { transform: translateX(150px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(-150px); opacity: 0; scale: 0.8; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="left-container">
+        <div class="panel-title">🕹️ 큐 제어 & 코드 로그</div>
+        
+        <div class="control-box">
+            <div class="control-label">1. 큐에 데이터 넣기 (Enqueue / append)</div>
+            <div class="input-row">
+                <input type="text" class="input-box" id="queueInput" placeholder="값 입력">
+                <button id="enqueueBtn" style="width:120px;">append()</button>
+            </div>
+        </div>
+
+        <div class="control-box">
+            <div class="control-label">2. 가장 먼저 온 데이터 꺼내기 (Dequeue)</div>
+            <button id="dequeueBtn">pop(0) 실행</button>
+        </div>
+
+        <div class="code-box" id="codeLog">
+            <div class="code-line"><span class="variable">queue</span> = <span class="bracket">[ ]</span></div>
+        </div>
+    </div>
+
+    <div class="right-container">
+        <div class="section-title">↔️ 자료구조 큐 (Queue) 시각화</div>
+        <div class="section-subtitle">먼저 줄을 선 데이터가 먼저 탈출하는 선입선출(FIFO) 구조</div>
+        
+        <div class="queue-pipe" id="queuePipe">
+            <div class="empty-msg">큐가 비어 있습니다.<br>값을 append 해보세요!</div>
+        </div>
+    </div>
+
+    <script>
+        var queueData = [];
+        var lastAddedIndex = -1;
+        var isMoving = false;
+
+        var queueInput = document.getElementById("queueInput");
+        var enqueueBtn = document.getElementById("enqueueBtn");
+        var dequeueBtn = document.getElementById("dequeueBtn");
+        var queuePipe = document.getElementById("queuePipe");
+        var codeLog = document.getElementById("codeLog");
+
+        queueInput.addEventListener("keydown", function(e) { if (e.key === "Enter" && !isMoving) enqueueAction(); });
+        enqueueBtn.addEventListener("click", function() { if (!isMoving) enqueueAction(); });
+        dequeueBtn.addEventListener("click", function() { if (!isMoving) dequeueAction(); });
+
+        function enqueueAction() {
+            var value = queueInput.value.trim();
+            if (value === "") { alert("큐에 넣을 값을 입력해 주세요."); return; }
+            
+            if (queueData.length >= 5) {
+                alert("큐 공간이 가득 찼습니다! (시각화 한계)");
+                return;
+            }
+
+            var displayValue = isNaN(value) ? '"' + value + '"' : value;
+            var valueClass = isNaN(value) ? 'string' : 'number';
+
+            logCode('<span class="variable">queue</span>.<span class="method">append</span><span class="bracket">(</span><span class="' + valueClass + '">' + displayValue + '</span><span class="bracket">)</span>');
+            
+            queueData.push(value);
+            lastAddedIndex = queueData.length - 1;
+            renderQueue();
+            
+            queueInput.value = "";
+            queueInput.focus();
+        }
+
+        function dequeueAction() {
+            if (queueData.length === 0) {
+                logCode('<span class="variable">queue</span>.<span class="method">pop</span><span class="bracket">(</span><span class="number">0</span><span class="bracket">)</span>');
+                logCode('<span class="comment"># IndexError: pop from empty list</span>');
+                alert("큐가 이미 비어 있어 dequeue할 수 없습니다!");
+                return;
+            }
+
+            isMoving = true;
+            logCode('<span class="variable">queue</span>.<span class="method">pop</span><span class="bracket">(</span><span class="number">0</span><span class="bracket">)</span>');
+
+            var blocks = queuePipe.getElementsByClassName('queue-block');
+            var frontBlock = blocks[0]; 
+
+            if (frontBlock) {
+                frontBlock.classList.add('popping-out');
+            }
+
+            setTimeout(function() {
+                queueData.shift(); 
+                lastAddedIndex = -1;
+                renderQueue();
+                isMoving = false;
+            }, 280); 
+        }
+
+        function logCode(htmlContent) {
+            var newLine = document.createElement("div");
+            newLine.className = "code-line";
+            newLine.innerHTML = htmlContent;
+            codeLog.appendChild(newLine);
+            codeLog.scrollTop = codeLog.scrollHeight;
+        }
+
+        function renderQueue() {
+            if (queueData.length === 0) {
+                queuePipe.innerHTML = '<div class="empty-msg">큐가 비어 있습니다.<br>값을 append 해보세요!</div>';
+                return;
+            }
+
+            var queueHtml = "";
+            for (var i = 0; i < queueData.length; i++) {
+                var isFront = (i === 0);
+                var isRear = (i === queueData.length - 1);
+                
+                var tagsHtml = "";
+                if (isFront) tagsHtml += '<div class="pointer-tag front-tag">Front [0]</div>';
+                if (isRear) tagsHtml += '<div class="pointer-tag rear-tag">Rear [' + i + ']</div>';
+
+                var blockClasses = ['queue-block'];
+                if (isFront) blockClasses.push('front-block');
+                if (i === lastAddedIndex) blockClasses.push('new-entry');
+
+                queueHtml += '<div class="' + blockClasses.join(' ') + '">' +
+                             tagsHtml +
+                             '<div>' + queueData[i] + '</div>' +
+                             '</div>';
+            }
+            queuePipe.innerHTML = queueHtml;
+            lastAddedIndex = -1;
+        }
+    </script>
+</body>
+</html>
