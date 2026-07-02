@@ -1,1 +1,206 @@
-index.html
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>자료구조 수업 대시보드</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-sub: #666666;
+            --primary: #4a90e2;
+            --primary-hover: #357abd;
+            --game-color: #22c55e;
+            --game-hover: #16a34a;
+            --all-color: #2c3e50;
+            --all-hover: #1a252f;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            color: #2c3e50;
+        }
+
+        header p {
+            margin: 10px 0 0 0;
+            color: var(--text-sub);
+            font-size: 1.1rem;
+        }
+
+        .container {
+            max-width: 1000px;
+            width: 100%;
+        }
+
+        /* 섹션 제목 스타일 */
+        .section-title {
+            font-size: 1.6rem;
+            color: #2c3e50;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            padding-bottom: 8px;
+            border-bottom: 3px solid #cbd5e1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* 그리드 레이아웃 */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+        }
+
+        /* 카드 스타일 */
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: var(--shadow);
+            text-align: center;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .card h2 {
+            margin: 0 0 10px 0;
+            font-size: 1.4rem;
+            color: #2c3e50;
+        }
+
+        .card p {
+            margin: 0 0 20px 0;
+            color: var(--text-sub);
+            font-size: 0.95rem;
+            line-height: 1.4;
+            flex-grow: 1; /* 설명 텍스트가 짧아도 버튼 위치가 정렬되도록 설정 */
+        }
+
+        /* 버튼 스타일 공통 */
+        .card a {
+            display: inline-block;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: background-color 0.2s ease;
+        }
+
+        /* 핵심 개념 학습 버튼 */
+        .card .btn-concept {
+            background-color: var(--primary);
+        }
+        .card .btn-concept:hover {
+            background-color: var(--primary-hover);
+        }
+
+        /* 종합 자료 버튼 */
+        .card .btn-all {
+            background-color: var(--all-color);
+        }
+        .card .btn-all:hover {
+            background-color: var(--all-hover);
+        }
+
+        /* 실습 게임 버튼 */
+        .card .btn-game {
+            background-color: var(--game-color);
+        }
+        .card .btn-game:hover {
+            background-color: var(--game-hover);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>💡 자료구조(Data Structure) 학습 대시보드</h1>
+            <p>개념을 학습하고 재미있는 퀴즈 게임을 통해 자료구조를 마스터해 보세요!</p>
+        </header>
+
+        <div class="section-title">📘 핵심 개념 학습</div>
+        <div class="grid">
+            <div class="card">
+                <h2>Array (배열)</h2>
+                <p>연속된 메모리 공간에 데이터를 효율적으로 저장하는 가장 기초적인 자료구조</p>
+                <a href="array.html" class="btn-concept">학습하기</a>
+            </div>
+
+            <div class="card">
+                <h2>List (리스트)</h2>
+                <p>순서가 있는 데이터의 집합 및 동적 크기를 갖는 연결 리스트 구조</p>
+                <a href="list.html" class="btn-concept">학습하기</a>
+            </div>
+
+            <div class="card">
+                <h2>Stack (스택)</h2>
+                <p>한쪽 끝에서만 자료를 넣고 뺄 수 있는 후입선출(LIFO) 형태의 선형 자료구조</p>
+                <a href="stack.html" class="btn-concept">학습하기</a>
+            </div>
+
+            <div class="card">
+                <h2>Queue (큐)</h2>
+                <p>먼저 들어온 데이터가 먼저 나가는 선입선출(FIFO) 형태의 선형 자료구조</p>
+                <a href="queue.html" class="btn-concept">학습하기</a>
+            </div>
+        </div>
+
+        <div class="section-title">📂 종합 복습 자료</div>
+        <div class="grid" style="grid-template-columns: 1fr;">
+            <div class="card" style="text-align: left; flex-direction: row; align-items: center; justify-content: space-between; padding: 20px 30px;">
+                <div style="margin-right: 20px;">
+                    <h2 style="margin: 0 0 5px 0;">전체 자료 한눈에 보기</h2>
+                    <p style="margin: 0; font-size: 0.95rem;">지금까지 배운 모든 자료구조의 개념과 비교 분석을 하나의 페이지에서 총정리합니다.</p>
+                </div>
+                <a href="_all.html" class="btn-all" style="white-space: nowrap;">종합 자료 보기</a>
+            </div>
+        </div>
+
+        <div class="section-title">🎮 파이썬 코딩 실습 게임</div>
+        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));">
+            <div class="card" style="border: 2px solid #bbf7d0;">
+                <h2>스택 미로 게임 🔑</h2>
+                <p>파이썬의 <span style="font-family: monospace; font-weight: bold; color: #b91c1c;">append()</span>와 <span style="font-family: monospace; font-weight: bold; color: #b91c1c;">pop()</span> 함수를 사용하여 미로 속 아이템을 획득하고 집을 찾아가세요!</p>
+                <a href="stack_game1.html" class="btn-game">게임 시작하기</a>
+            </div>
+
+            <div class="card" style="border: 2px solid #bbf7d0;">
+                <h2>큐 미로 게임 🍎</h2>
+                <p>선입선출(FIFO) 방식으로 작동하는 큐의 특성을 이해하고 코딩 명령어로 미로를 탈출해 보세요!</p>
+                <a href="queue_game1.html" class="btn-game">게임 시작하기</a>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

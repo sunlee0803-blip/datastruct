@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>말랑말랑 큐 미로 탈출</title>
+    <style>
+        :root {
+            --bg-color: #f0f4f8;
+            --wall-color: #34495e;
+            --path-color: #ffffff;
+            --player-color: #f1c40f;
+            --goal-color: #2ecc71;
+            --queue-bg: #dfe6e9;
+        }
+
+        body {
+            font-family: 'Nanum Gothic', sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        h1 { color: #2d3436; margin-bottom: 10px; }
+        p { color: #636e72; margin-top: 0; }
+
+        .game-container {
+            display: flex;
+            gap: 40px;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            align-items: center;
+        }
+
+        #maze {
+            display: grid;
+            grid-template-columns: repeat(10, 45px);
+            grid-template-rows: repeat(10, 45px);
+            gap: 2px;
+            background-color: #bdc3c7;
+            border: 5px solid #bdc3c7;
+            border-radius: 8px;
+        }
+
+        .cell {
+            width: 45px;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            background-color: var(--path-color);
+        }
+
+        .wall { background-color: var(--wall-color); }
+        .goal { background-color: var(--goal-color); }
+        .start { background-color: #a29bfe; }
+
+        .queue-container {
+            width: 540px; 
+            display: flex;
+            flex-direction: column;
+        }
+
+        .queue-label-box {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            margin-bottom: 12px;
+            color: #2d3436;
+            font-size: 16px;
+            padding: 0 5px;
+        }
+
+        /* 원통 파이프 트랙 */
+        #queue-track {
+            display: grid;
+            grid-template-columns: repeat(10, 48px);
+            gap: 6px;
+            background-color: var(--queue-bg);
+            border-top: 4px solid #636e72;
+            border-bottom: 4px solid #636e72;
+            border-left: 2px dashed #b2bec3;
+            border-right: 2px dashed #b2bec3;
+            border-radius: 4px;
+            padding: 8px;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .q-item {
+            width: 48px;
+            height: 48px;
+            background-color: #0984e3;
+            color: white;
+            font-size: 22px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            box-sizing: border-box;
+            transition: background-color 0.2s, transform 0.2s;
+            z-index: 2;
+        }
+
+        .q-empty {
+            width: 48px;
+            height: 48px;
+            background-color: transparent;
+            border-radius: 50%;
+            box-sizing: border-box;
+        }
+
+        /* 입구에서 들어와 이동 중이거나 뒤에 정착한 최신 구슬 */
+        .q-item.new-spawn {
+            background-color: #d63031 !important;
+        }
+
+        /* 출구 앞 실행 대기 상태 */
+        .q-item.executing {
+            background-color: #2ecc71 !important;
+            transform: scale(1.05);
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            border-radius: 6px;
+            background-color: #6c5ce7;
+            color: white;
+            transition: 0.2s;
+        }
+
+        button:hover { background-color: #5b4cc4; }
+        button:active { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+
+    <h1>🐥 원통 파이프 큐 (이동 애니메이션 구현)</h1>
+    <p>방향키 입력 시 왼쪽에서 구슬이 생성되어 <b>오른쪽 출구 쪽으로 슈우욱 굴러갑니다.</b></p>
+
+    <div class="game-container">
+        <div>
+            <div id="maze"></div>
+            <button onclick="startExecuting()" style="margin-top:15px; width:100%; background-color:#2ecc71;">명령 실행 (Dequeue)</button>
+        </div>
+
+        <div class="queue-container">
+            <div class="queue-label-box">
+                <span>[입력] Enqueue ➔</span>
+                <span>➔ Dequeue [출구]</span>
+            </div>
+            <div id="queue-track"></div>
+            <p style="margin-top: 20px; font-size: 14px; color: #7f8c8d; line-height: 1.6;">
+                * <b>입력 (Enqueue)</b>: 왼쪽에서 생성된 <span style="color:#d63031; font-weight:bold;">빨간 구슬</span>이 오른쪽 대기열까지 굴러가 턱 멈춥니다.<br>
+                * <b>실행 (Dequeue)</b>: 맨 오른쪽 출구 구슬이 빠져나가고, 뒤의 구슬들이 우측으로 이동합니다.
+            </p>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button onclick="resetGame()" style="background-color: #e17055;">다시 시작</button>
+    </div>
+
+<script>
+    const mazeElement = document.getElementById('maze');
+    const queueTrack = document.getElementById('queue-track');
+    const size = 10;
+    const maxCapacity = 10; 
+    
+    const map = [
+        [2, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+        [0, 0, 1, 0, 1, 0, 1, 0, 1, 0],
+        [0, 1, 1, 0, 1, 0, 0, 0, 1, 0],
+        [0, 0, 0, 0, 1, 1, 1, 0, 1, 0],
+        [1, 1, 1, 0, 0, 0, 1, 0, 1, 0],
+        [0, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+        [0, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+        [0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 1, 1, 1, 1, 1, 1, 0],
+        [1, 1, 0, 0, 0, 0, 0, 0, 0, 3]
+    ];
+
+    let playerPos = { x: 0, y: 0 };
+    let commandQueue = []; 
+    let isPlaying = false; 
+    let isAnimating = false; // 애니메이션 중 입력 방지락
+
+    function createMaze() {
+        mazeElement.innerHTML = '';
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                if (map[y][x] === 1) cell.classList.add('wall');
+                if (map[y][x] === 2) cell.classList.add('start');
+                if (map[y][x] === 3) { cell.classList.add('goal'); cell.innerHTML = '🏠'; }
+                if (x === playerPos.x && y === playerPos.y) { cell.innerHTML = '🐥'; }
+                mazeElement.appendChild(cell);
+            }
+        }
+    }
+
+    // 기본 정착 상태 UI 렌더러
+    function updateQueueUI(executingIdx = -1) {
+        queueTrack.innerHTML = '';
+        const emptySlotsCount = maxCapacity - commandQueue.length;
+        
+        for (let i = 0; i < maxCapacity; i++) {
+            if (i < emptySlotsCount) {
+                const emptyDiv = document.createElement('div');
+                emptyDiv.className = 'q-empty';
+                queueTrack.appendChild(emptyDiv);
+            } else {
+                const dataIndex = (commandQueue.length - 1) - (i - emptySlotsCount);
+                const data = commandQueue[dataIndex];
+                
+                const div = document.createElement('div');
+                div.className = 'q-item';
+                div.innerText = data.val;
+                
+                if (dataIndex === commandQueue.length - 1) div.classList.add('new-spawn');
+                if (dataIndex === executingIdx) div.classList.add('executing');
+                
+                queueTrack.appendChild(div);
+            }
+        }
+    }
+
+    // 왼쪽에서 오른쪽으로 굴러가는 애니메이션 연출 렌더러
+    function renderRollAnimation(currentPos, value) {
+        queueTrack.innerHTML = '';
+        const targetStopIndex = maxCapacity - 1 - commandQueue.length; // 굴러가서 멈춰야 할 칸 번호
+
+        for (let i = 0; i < maxCapacity; i++) {
+            // 1. 이미 굴러가서 고정 배치되어 있는 기존 구슬들 렌더링
+            const fixedDataIdx = (maxCapacity - 1) - i;
+            if (fixedDataIdx < commandQueue.length) {
+                const data = commandQueue[fixedDataIdx];
+                const div = document.createElement('div');
+                div.className = 'q-item';
+                div.innerText = data.val;
+                queueTrack.appendChild(div);
+            } 
+            // 2. 현재 굴러가고 있는 실시간 위치(currentPos)에 빨간 구슬 배치
+            else if (i === currentPos) {
+                const div = document.createElement('div');
+                div.className = 'q-item new-spawn';
+                div.innerText = value;
+                queueTrack.appendChild(div);
+            } 
+            // 3.머무는 구슬도 없고 굴러가는 구슬도 없는 빈 파이프 공간
+            else {
+                const emptyDiv = document.createElement('div');
+                emptyDiv.className = 'q-empty';
+                queueTrack.appendChild(emptyDiv);
+            }
+        }
+    }
+
+    window.addEventListener('keydown', async (e) => {
+        if (isPlaying || isAnimating) return;
+        if (commandQueue.length >= maxCapacity) return; 
+        
+        const keyMap = { 'ArrowUp': '↑', 'ArrowDown': '↓', 'ArrowLeft': '←', 'ArrowRight': '→' };
+        if (!keyMap[e.key]) return;
+        e.preventDefault();
+
+        isAnimating = true;
+        const incomingValue = keyMap[e.key];
+
+        // 굴러가서 멈출 종착지 칸 인덱스 계산 (데이터가 없을 땐 9번 칸, 1개 있을 땐 8번 칸...)
+        const stopPosition = maxCapacity - 1 - commandQueue.length;
+
+        // 왼쪽 입구(0번 인덱스)부터 종착지(stopPosition)까지 순차적으로 굴러가는 연출
+        for (let pos = 0; pos <= stopPosition; pos++) {
+            renderRollAnimation(pos, incomingValue);
+            await new Promise(resolve => setTimeout(resolve, 40)); // 굴러가는 속도 조절
+        }
+
+        // 끝까지 굴러갔으면 실제 데이터 큐에 탑재하고 최종 확정 UI 갱신
+        commandQueue.push({ val: incomingValue });
+        updateQueueUI();
+        isAnimating = false;
+    });
+
+    async function startExecuting() {
+        if (isPlaying || isAnimating || commandQueue.length === 0) return;
+        isPlaying = true;
+
+        while (commandQueue.length > 0) {
+            const currentCommand = commandQueue[0]; 
+
+            updateQueueUI(0);
+            await new Promise(resolve => setTimeout(resolve, 250));
+            
+            commandQueue.shift();
+            updateQueueUI();
+
+            let dx = 0, dy = 0;
+            if (currentCommand.val === '↑') dy = -1;
+            else if (currentCommand.val === '↓') dy = 1;
+            else if (currentCommand.val === '←') dx = -1;
+            else if (currentCommand.val === '→') dx = 1;
+
+            const nextX = playerPos.x + dx;
+            const nextY = playerPos.y + dy;
+
+            if (nextX >= 0 && nextX < size && nextY >= 0 && nextY < size && map[nextY][nextX] !== 1) {
+                playerPos.x = nextX;
+                playerPos.y = nextY;
+                createMaze();
+
+                if (map[nextY][nextX] === 3) {
+                    setTimeout(() => alert('🎉 성공! 집을 찾았어요!'), 100);
+                    commandQueue = [];
+                    updateQueueUI();
+                    break;
+                }
+            } else {
+                alert('💥 윽! 벽에 부딪혀 경로 예약이 정지되었습니다!');
+                commandQueue = [];
+                updateQueueUI();
+                break;
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 200));
+        }
+
+        isPlaying = false;
+    }
+
+    function resetGame() {
+        playerPos = { x: 0, y: 0 };
+        commandQueue = [];
+        isPlaying = false;
+        isAnimating = false;
+        createMaze();
+        updateQueueUI();
+    }
+
+    createMaze();
+    updateQueueUI();
+</script>
+</body>
+</html>

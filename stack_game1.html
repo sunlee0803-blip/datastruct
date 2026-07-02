@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>말랑말랑 스택 미로 탈출</title>
+    <style>
+        :root {
+            --bg-color: #f0f4f8;
+            --wall-color: #34495e;
+            --path-color: #ffffff;
+            --player-color: #f1c40f;
+            --goal-color: #2ecc71;
+            --stack-bg: #dfe6e9;
+        }
+
+        body {
+            font-family: 'Nanum Gothic', sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        h1 { color: #2d3436; margin-bottom: 10px; }
+        p { color: #636e72; margin-top: 0; }
+
+        .game-container {
+            display: flex;
+            gap: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        /* 10x10 그리드 설정 */
+        #maze {
+            display: grid;
+            grid-template-columns: repeat(10, 40px);
+            grid-template-rows: repeat(10, 40px);
+            gap: 2px;
+            background-color: #bdc3c7;
+            border: 5px solid #bdc3c7;
+        }
+
+        .cell {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            background-color: var(--path-color);
+        }
+
+        .wall { background-color: var(--wall-color); }
+        .goal { background-color: var(--goal-color); }
+        .start { background-color: #a29bfe; }
+
+        /* 스택 영역 스타일 */
+        .stack-container {
+            width: 150px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #stack-view {
+            width: 100%;
+            height: 350px;
+            border: 3px solid #636e72;
+            border-top: none;
+            background-color: var(--stack-bg);
+            display: flex;
+            flex-direction: column; /* 위에서부터 정방향으로 배치 */
+            justify-content: flex-end; /* 아래쪽부터 차곡차곡 정렬 */
+            overflow-y: auto;
+            border-radius: 0 0 10px 10px;
+        }
+
+        .stack-item {
+            background-color: #0984e3;
+            color: white;
+            margin: 2px 4px;
+            padding: 8px 5px;
+            text-align: center;
+            border-radius: 5px;
+            font-size: 12px;
+            /* 위에서 아래로 떨어지며 나타나는 효과 */
+            animation: slideDown 0.25s ease-out forwards;
+            transform-origin: top;
+        }
+
+        @keyframes slideDown {
+            from { 
+                transform: translateY(-50px) scaleY(0.5); 
+                opacity: 0; 
+            }
+            to { 
+                transform: translateY(0) scaleY(1); 
+                opacity: 1; 
+            }
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #e17055;
+            color: white;
+            transition: 0.2s;
+        }
+
+        button:hover { background-color: #d63031; }
+        button:active { transform: scale(0.95); }
+        
+        .stack-label { font-weight: bold; margin-bottom: 5px; color: #2d3436; }
+    </style>
+</head>
+<body>
+
+    <h1>🐥 병아리의 집 찾기 (Stack)</h1>
+    <p>방향키로 움직이고, <b>'되돌리기'</b> 버튼으로 스택(Stack)을 확인해봐!</p>
+
+    <div class="game-container">
+        <div id="maze"></div>
+
+        <div class="stack-container">
+            <div class="stack-label">나의 이동 스택</div>
+            <div id="stack-view"></div>
+            <button onclick="undoMove()" style="margin-top:10px; width:100%; background-color:#6c5ce7;">뒤로 가기 (POP)</button>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button onclick="resetGame()">다시 시작</button>
+    </div>
+
+<script>
+    const mazeElement = document.getElementById('maze');
+    const stackView = document.getElementById('stack-view');
+    const size = 10;
+    
+    // 0: 길, 1: 벽, 2: 시작점, 3: 도착점
+    const map = [
+        [2, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+        [0, 0, 1, 0, 1, 0, 1, 0, 1, 0],
+        [0, 1, 1, 0, 1, 0, 0, 0, 1, 0],
+        [0, 0, 0, 0, 1, 1, 1, 0, 1, 0],
+        [1, 1, 1, 0, 0, 0, 1, 0, 1, 0],
+        [0, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+        [0, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+        [0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 1, 1, 1, 1, 1, 1, 0],
+        [1, 1, 0, 0, 0, 0, 0, 0, 0, 3]
+    ];
+
+    let playerPos = { x: 0, y: 0 };
+    let moveStack = []; // 스택 배열
+
+    // 미로 그리기
+    function createMaze() {
+        mazeElement.innerHTML = '';
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                if (map[y][x] === 1) cell.classList.add('wall');
+                if (map[y][x] === 2) cell.classList.add('start');
+                if (map[y][x] === 3) {
+                    cell.classList.add('goal');
+                    cell.innerHTML = '🏠';
+                }
+                if (x === playerPos.x && y === playerPos.y) {
+                    cell.innerHTML = '🐥';
+                    cell.id = 'player';
+                }
+                mazeElement.appendChild(cell);
+            }
+        }
+    }
+
+    // 스택 초기화용 함수
+    function updateStackUI() {
+        stackView.innerHTML = '';
+        moveStack.forEach((pos, index) => {
+            pushStackUI(pos, index);
+        });
+    }
+
+    // 스택에 요소가 추가될 때 개별적으로 그리는 함수 (깜빡임 방지)
+    function pushStackUI(pos, index) {
+        const item = document.createElement('div');
+        item.className = 'stack-item';
+        item.id = `stack-item-${index}`; // 고유 ID를 부여하여 POP 할 때 타겟팅 제거 가능하게 함
+        item.innerText = `${index + 1}: (${pos.x}, ${pos.y})`;
+        
+        // 새로운 아이템을 스택의 맨 위(가장 첫 번째 자식 위치)에 삽입
+        stackView.insertBefore(item, stackView.firstChild);
+    }
+
+    // 이동 함수
+    function movePlayer(dx, dy) {
+        const newX = playerPos.x + dx;
+        const newY = playerPos.y + dy;
+
+        // 경계 및 벽 체크
+        if (newX >= 0 && newX < size && newY >= 0 && newY < size && map[newY][newX] !== 1) {
+            // 현재 위치를 스택에 PUSH
+            const currentPos = { x: playerPos.x, y: playerPos.y };
+            moveStack.push(currentPos);
+            
+            // 기존 요소를 건드리지 않고, 새로운 데이터만 스택 UI 최상단에 부드럽게 삽입
+            pushStackUI(currentPos, moveStack.length - 1);
+            
+            playerPos.x = newX;
+            playerPos.y = newY;
+            
+            createMaze();
+
+            if (map[newY][newX] === 3) {
+                setTimeout(() => alert('🎉 성공! 집을 찾았어요!'), 100);
+            }
+        }
+    }
+
+    // 되돌리기 (POP)
+    function undoMove() {
+        if (moveStack.length > 0) {
+            const lastIndex = moveStack.length - 1;
+            
+            // 스택에서 마지막 위치를 POP
+            const lastPos = moveStack.pop();
+            
+            // 전체를 새로 고치지 않고, 제거되는 최상단 아이템만 돔(DOM)에서 삭제
+            const itemToRemove = document.getElementById(`stack-item-${lastIndex}`);
+            if (itemToRemove) {
+                itemToRemove.remove();
+            }
+            
+            playerPos.x = lastPos.x;
+            playerPos.y = lastPos.y;
+            
+            createMaze();
+        } else {
+            alert("더 이상 되돌릴 길이 없어요!");
+        }
+    }
+
+    // 키보드 입력
+    window.addEventListener('keydown', (e) => {
+        switch(e.key) {
+            case 'ArrowUp': movePlayer(0, -1); break;
+            case 'ArrowDown': movePlayer(0, 1); break;
+            case 'ArrowLeft': movePlayer(-1, 0); break;
+            case 'ArrowRight': movePlayer(1, 0); break;
+        }
+    });
+
+    function resetGame() {
+        playerPos = { x: 0, y: 0 };
+        moveStack = [];
+        createMaze();
+        updateStackUI();
+    }
+
+    createMaze();
+</script>
+</body>
+</html>
