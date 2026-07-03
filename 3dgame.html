@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="ko">
-<head> 
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D FPS 게임 - 크롬 입력 버그 수정 완료</title>
+    <title>3D FPS 게임 - 완벽 호환 버전</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; background-color: #11141a; }
@@ -240,20 +240,25 @@
             controls = new THREE.PointerLockControls(camera, document.getElementById("gameContainer"));
             scene.add(controls.getObject());
 
-            // [수정] 크롬 브라우저 호환성을 위해 e.code 대신 e.key 판정으로 변경 및 무기 입력 스위치 최적화
+            // 키보드 이벤트 리스너 통합 및 포커스 안정화 안정장치 탑재
             const onKeyDown = (e) => {
+                // 게임창 포커스가 나갔을 경우 강제 확보
+                if (controls.isLocked && document.activeElement !== document.body) {
+                    window.focus();
+                }
+
+                // 무기 변경 감지 (어떤 모드에서도 씹히지 않도록 최우선 처리)
+                if (e.key === '1') { switchWeapon(1); return; }
+                if (e.key === '2') { switchWeapon(2); return; }
+                if (e.key === '3') { switchWeapon(3); return; }
+
                 if (!controls.isLocked) return;
                 
-                // 이동 키 감지 (기존대로 유지)
+                // 이동 키 감지
                 if (e.code === 'KeyW') moveForward = true;
                 if (e.code === 'KeyA') moveLeft = true;
                 if (e.code === 'KeyS') moveBackward = true;
                 if (e.code === 'KeyD') moveRight = true;
-                
-                // 크롬 호환 숫자 무기 변경 감지
-                if (e.key === '1') switchWeapon(1);
-                if (e.key === '2') switchWeapon(2);
-                if (e.key === '3') switchWeapon(3);
                 
                 // 사격 감지
                 if (e.code === 'Space') {
@@ -276,6 +281,7 @@
                 menuOverlay.style.display = "none"; 
                 menuStack = []; 
                 renderStackVisual(); 
+                window.focus(); // 마우스가 잠길 때 브라우저 윈도우 포커스 강제 고정
                 gameStatus.innerHTML = `🟢 <b>[게임 진행 중]</b> 이동: W,A,S,D | 사격: 스페이스바 | 무기변경: 숫자키 1, 2, 3 | <b>메뉴: ESC</b>`;
             });
 
@@ -286,8 +292,11 @@
                 }
             });
 
-            document.getElementById("canvas3d").addEventListener('click', () => { 
-                if(menuStack.length === 0) controls.lock(); 
+            document.getElementById("gameContainer").addEventListener('click', () => { 
+                if(menuStack.length === 0) {
+                    controls.lock();
+                    window.focus();
+                }
             });
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -302,10 +311,14 @@
             });
         }
 
+        // 무기 교체 및 하단 UI 활성화 상태 비주얼 업데이트 함수
         function switchWeapon(type) {
             currentWeapon = type;
             document.querySelectorAll('.weapon-slot').forEach(slot => slot.classList.remove('active'));
-            document.getElementById('slot' + type).classList.add('active');
+            const activeSlot = document.getElementById('slot' + type);
+            if (activeSlot) {
+                activeSlot.classList.add('active');
+            }
         }
 
         function fireActiveWeapon() {
