@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D FPS 게임 - UI 버그 수정 완료</title>
+    <title>3D FPS 게임 - 크롬 입력 버그 수정 완료</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; background-color: #11141a; }
@@ -47,7 +47,7 @@
         #menuOverlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.6); 
-            display: none; /* [수정] 초기 상태에는 아예 보이지 않도록 숨김 */
+            display: none; 
             justify-content: center; align-items: center; z-index: 8;
         }
         .menu-window {
@@ -89,7 +89,7 @@
     <div class="game-container" id="gameContainer">
         <div id="gameStatus">
             🎮 <b>[게임 대기 중]</b> 화면을 클릭하면 게임이 시작됩니다!<br>
-            이동: W, A, S, D | 사격: 스페이스바 | <b>메뉴 열기: ESC</b>
+            이동: W, A, S, D | 사격: 스페이스바 | <b>무기 변경: 숫자키 [1], [2], [3]</b> | 메뉴 열기: ESC
         </div>
         <div id="crosshair"></div>
         <div id="canvas3d"></div>
@@ -153,7 +153,6 @@
             }
         };
 
-        // [수정] 처음에는 스택을 비워두어 메뉴가 뜨지 않게 합니다.
         let menuStack = []; 
         const menuOverlay = document.getElementById("menuOverlay");
         const menuWindow = document.getElementById("menuWindow");
@@ -168,7 +167,7 @@
 
         function popMenu() {
             if (menuStack.length === 1) {
-                controls.lock(); // 최상단 메뉴에서 나가면 마우스 고정 활성화
+                controls.lock(); 
             } else if (menuStack.length > 1) {
                 menuStack.pop();
                 renderMenu();
@@ -238,48 +237,48 @@
                 targets.push(box);
             }
 
-            // [수정] 포인터 락의 대상을 버튼이 포함된 'gameContainer' 전체로 설정하여 클릭 판정 버그를 완전히 방지합니다.
             controls = new THREE.PointerLockControls(camera, document.getElementById("gameContainer"));
             scene.add(controls.getObject());
 
+            // [수정] 크롬 브라우저 호환성을 위해 e.code 대신 e.key 판정으로 변경 및 무기 입력 스위치 최적화
             const onKeyDown = (e) => {
                 if (!controls.isLocked) return;
-                switch (e.code) {
-                    case 'KeyW': moveForward = true; break;
-                    case 'KeyA': moveLeft = true; break;
-                    case 'KeyS': moveBackward = true; break;
-                    case 'KeyD': moveRight = true; break;
-                    case 'Digit1': switchWeapon(1); break;
-                    case 'Digit2': switchWeapon(2); break;
-                    case 'Digit3': switchWeapon(3); break;
-                    case 'Space': 
-                        e.preventDefault();
-                        fireActiveWeapon(); 
-                        break;
+                
+                // 이동 키 감지 (기존대로 유지)
+                if (e.code === 'KeyW') moveForward = true;
+                if (e.code === 'KeyA') moveLeft = true;
+                if (e.code === 'KeyS') moveBackward = true;
+                if (e.code === 'KeyD') moveRight = true;
+                
+                // 크롬 호환 숫자 무기 변경 감지
+                if (e.key === '1') switchWeapon(1);
+                if (e.key === '2') switchWeapon(2);
+                if (e.key === '3') switchWeapon(3);
+                
+                // 사격 감지
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    fireActiveWeapon(); 
                 }
             };
 
             const onKeyUp = (e) => {
-                switch (e.code) {
-                    case 'KeyW': moveForward = false; break;
-                    case 'KeyA': moveLeft = false; break;
-                    case 'KeyS': moveBackward = false; break;
-                    case 'KeyD': moveRight = false; break;
-                }
+                if (e.code === 'KeyW') moveForward = false;
+                if (e.code === 'KeyA') moveLeft = false;
+                if (e.code === 'KeyS') moveBackward = false;
+                if (e.code === 'KeyD') moveRight = false;
             };
 
             document.addEventListener('keydown', onKeyDown);
             document.addEventListener('keyup', onKeyUp);
 
-            // [수정] 게임이 활성화되면 메뉴를 숨기고 스택을 완전히 비웁니다.
             controls.addEventListener('lock', () => { 
                 menuOverlay.style.display = "none"; 
                 menuStack = []; 
                 renderStackVisual(); 
-                gameStatus.innerHTML = `🟢 <b>[게임 진행 중]</b> 이동: W,A,S,D | 사격: 스페이스바 | 무기변경: 1, 2, 3 | <b>메뉴: ESC</b>`;
+                gameStatus.innerHTML = `🟢 <b>[게임 진행 중]</b> 이동: W,A,S,D | 사격: 스페이스바 | 무기변경: 숫자키 1, 2, 3 | <b>메뉴: ESC</b>`;
             });
 
-            // [수정] ESC를 눌러 마우스 고정이 풀리면 그때 비로소 'pause' 메뉴 스택을 푸시하여 화면에 띄웁니다.
             controls.addEventListener('unlock', () => { 
                 gameStatus.innerHTML = `🔴 <b>[일시 정지]</b> 대기 중... 화면을 클릭하거나 버튼을 누르면 재개됩니다.`;
                 if (menuStack.length === 0) {
@@ -287,7 +286,6 @@
                 }
             });
 
-            // 초기 대기 상태에서 화면을 클릭하면 게임이 시작되도록 설정
             document.getElementById("canvas3d").addEventListener('click', () => { 
                 if(menuStack.length === 0) controls.lock(); 
             });
