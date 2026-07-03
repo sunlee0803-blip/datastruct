@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D FPS 게임 - UI 버그 수정 완료</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; background-color: #11141a; }
+        
+        /* 왼쪽: 3D 게임 화면 및 게임 메뉴 UI */
+        .game-container {
+            width: 70%; height: 100%; position: relative;
+            border-right: 3px solid #2c3e50;
+        }
+        #canvas3d { width: 100%; height: 100%; cursor: pointer; }
+        
+        /* 크로스헤어 */
+        #crosshair {
+            position: absolute; top: 50%; left: 50%;
+            width: 10px; height: 10px; border: 2px solid #00ff00; border-radius: 50%;
+            transform: translate(-50%, -50%); pointer-events: none; z-index: 5;
+        }
+
+        /* 게임 내 상단 안내 피드 */
+        #gameStatus {
+            position: absolute; top: 20px; left: 20px;
+            color: #00ff00; font-size: 15px; font-family: monospace;
+            background: rgba(0,0,0,0.8); padding: 12px 18px; border-radius: 5px; z-index: 5;
+            line-height: 1.6; border: 1px solid #00ff00;
+        }
+
+        /* 하단 무기 선택 안내 UI 패널 */
+        #weaponUI {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 15px; background: rgba(0,0,0,0.8);
+            padding: 10px 20px; border-radius: 8px; border: 2px solid #34495e; z-index: 5;
+        }
+        .weapon-slot {
+            color: #aaa; font-weight: bold; font-size: 16px; padding: 5px 10px; border-radius: 4px;
+        }
+        .weapon-slot.active {
+            color: #fff; background-color: #e67e22; box-shadow: 0 0 10px #e67e22;
+        }
+
+        /* 3D 화면 위에 덮이는 게임 메뉴 레이어 */
+        #menuOverlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6); 
+            display: none; /* [수정] 초기 상태에는 아예 보이지 않도록 숨김 */
+            justify-content: center; align-items: center; z-index: 8;
+        }
+        .menu-window {
+            background: #2c3e50; padding: 30px; border-radius: 12px; width: 350px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 2px solid #34495e; color: white;
+        }
+        .menu-title { font-size: 24px; font-weight: bold; margin-bottom: 20px; text-align: center; color: #f1c40f; }
+        .menu-btn {
+            width: 100%; padding: 12px; margin-bottom: 12px; border: none; border-radius: 6px;
+            font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s;
+            background-color: #34495e; color: white; text-align: left; display: flex; justify-content: space-between;
+        }
+        .menu-btn:hover { background-color: #3498db; }
+        .menu-btn.back { background-color: #e74c3c; text-align: center; justify-content: center; }
+        .menu-btn.back:hover { background-color: #c0392b; }
+
+        /* 오른쪽: 스택 시각화 영역 */
+        .stack-container {
+            width: 30%; height: 100%; background-color: #1e272e;
+            padding: 25px; display: flex; flex-direction: column; align-items: center;
+        }
+        .stack-title { color: #7bed9f; font-size: 20px; font-weight: bold; text-align: center; margin-bottom: 20px; width: 100%; }
+        .stack-memory {
+            width: 100%; flex: 1; border-left: 4px solid #747d8c; border-right: 4px solid #747d8c;
+            border-bottom: 4px solid #747d8c; border-bottom-left-radius: 10px; border-bottom-right-radius: 10px;
+            background-color: #11141a; display: flex; flex-direction: column-reverse; padding: 15px; gap: 10px; overflow-y: auto;
+        }
+        .stack-item {
+            background: linear-gradient(135deg, #a29bfe, #6c5ce7); color: white;
+            padding: 15px; border-radius: 6px; text-align: center; font-weight: bold; font-size: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3); animation: slideDown 0.2s ease-out;
+        }
+        @keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <!-- 왼쪽: 게임 및 메뉴판 -->
+    <div class="game-container" id="gameContainer">
+        <div id="gameStatus">
+            🎮 <b>[게임 대기 중]</b> 화면을 클릭하면 게임이 시작됩니다!<br>
+            이동: W, A, S, D | 사격: 스페이스바 | <b>메뉴 열기: ESC</b>
+        </div>
+        <div id="crosshair"></div>
+        <div id="canvas3d"></div>
+
+        <!-- 하단 무기 선택 바 -->
+        <div id="weaponUI">
+            <div class="weapon-slot" id="slot1">1: 돌 (1초당 1발)</div>
+            <div class="weapon-slot active" id="slot2">2: 총알 (기본 연사)</div>
+            <div class="weapon-slot" id="slot3">3: 미사일 (고속/범위폭발)</div>
+        </div>
+
+        <!-- 게임 내 팝업 메뉴 레이어 -->
+        <div id="menuOverlay">
+            <div class="menu-window" id="menuWindow">
+                <div class="menu-title">⏸️ 일시 정지</div>
+                <button class="menu-btn" onclick="pushMenu('settings')">⚙️ 게임 설정 <span>➔</span></button>
+                <button class="menu-btn" onclick="pushMenu('audio')">🎵 사운드 설정 <span>➔</span></button>
+                <button class="menu-btn back" onclick="popMenu()">▶ 게임으로 돌아가기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 오른쪽: 데이터 스택 타워 -->
+    <div class="stack-container">
+        <div class="stack-title">
+            📚 UI Navigation Stack<br>
+            <span style="font-size: 13px; color: #ced6e0; font-weight: normal;">(LIFO: 후입선출 메뉴 관리)</span>
+        </div>
+        <div class="stack-memory" id="stackMemory"></div>
+    </div>
+
+    <!-- Three.js 엔진 로드 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+
+    <script>
+        // ==========================================
+        // 1. 메뉴 데이터 및 스택 구조 정의
+        // ==========================================
+        const menuPages = {
+            "pause": {
+                title: "⏸️ 일시 정지", short: "일시정지 메뉴",
+                html: `<button class="menu-btn" onclick="pushMenu('settings')">⚙️ 게임 설정 <span>➔</span></button>
+                       <button class="menu-btn" onclick="pushMenu('audio')">🎵 사운드 설정 <span>➔</span></button>
+                       <button class="menu-btn back" onclick="popMenu()">▶ 게임으로 돌아가기</button>`
+            },
+            "settings": {
+                title: "⚙️ 게임 설정", short: "전체 설정창",
+                html: `<button class="menu-btn" onclick="pushMenu('graphics')">🖥️ 그래픽 품질 설정 <span>➔</span></button>
+                       <button class="menu-btn back" onclick="popMenu()">◀ 뒤로 가기</button>`
+            },
+            "audio": {
+                title: "🎵 사운드 설정", short: "오디오 설정창",
+                html: `<div style="padding:10px; margin-bottom:15px; background:#34495e; border-radius:6px; font-size:14px;">배경음 볼륨: ■■■■□ 80%</div>
+                       <button class="menu-btn back" onclick="popMenu()">◀ 뒤로 가기</button>`
+            },
+            "graphics": {
+                title: "🖥️ 그래픽 품질", short: "세부 그래픽창",
+                html: `<div style="padding:10px; margin-bottom:15px; background:#34495e; border-radius:6px; font-size:14px;">텍스처 해상도: 상 (High)</div>
+                       <button class="menu-btn back" onclick="popMenu()">◀ 뒤로 가기</button>`
+            }
+        };
+
+        // [수정] 처음에는 스택을 비워두어 메뉴가 뜨지 않게 합니다.
+        let menuStack = []; 
+        const menuOverlay = document.getElementById("menuOverlay");
+        const menuWindow = document.getElementById("menuWindow");
+        const stackMemory = document.getElementById("stackMemory");
+        const gameStatus = document.getElementById("gameStatus");
+
+        function pushMenu(menuId) {
+            menuStack.push(menuId);
+            renderMenu();
+            renderStackVisual();
+        }
+
+        function popMenu() {
+            if (menuStack.length === 1) {
+                controls.lock(); // 최상단 메뉴에서 나가면 마우스 고정 활성화
+            } else if (menuStack.length > 1) {
+                menuStack.pop();
+                renderMenu();
+                renderStackVisual();
+            }
+        }
+
+        function renderMenu() {
+            menuOverlay.style.display = "flex";
+            const currentMenuId = menuStack[menuStack.length - 1];
+            menuWindow.innerHTML = `<div class="menu-title">${menuPages[currentMenuId].title}</div>${menuPages[currentMenuId].html}`;
+        }
+
+        function renderStackVisual() {
+            stackMemory.innerHTML = "";
+            menuStack.forEach((menuId, index) => {
+                const item = document.createElement("div");
+                item.className = "stack-item";
+                item.innerHTML = `<span style="font-size:11px; opacity:0.7;">[Index ${index}]</span><br>${menuPages[menuId].short}`;
+                stackMemory.appendChild(item);
+            });
+        }
+
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "Backspace" && menuStack.length > 0) popMenu();
+        });
+
+
+        // ==========================================
+        // 2. 3D 환경 및 무기/이펙트 시스템 구축
+        // ==========================================
+        let scene, camera, renderer, controls;
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+        let velocity = new THREE.Vector3(), direction = new THREE.Vector3(), prevTime = performance.now();
+
+        let targets = [];
+        let bullets = [];
+        let particles = []; 
+
+        let currentWeapon = 2;   
+        let lastStoneShotTime = 0; 
+
+        init3D();
+        animate3D();
+        renderStackVisual(); 
+
+        function init3D() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1e24);
+            camera = new THREE.PerspectiveCamera(75, (window.innerWidth * 0.7) / window.innerHeight, 0.1, 1000);
+            camera.position.y = 2;
+
+            const light = new THREE.AmbientLight(0xffffff, 0.6); scene.add(light);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.6); dirLight.position.set(5, 10, 5); scene.add(dirLight);
+
+            const floorGeo = new THREE.PlaneGeometry(100, 100);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50 });
+            const floor = new THREE.Mesh(floorGeo, floorMat); floor.rotation.x = -Math.PI / 2; scene.add(floor);
+            const grid = new THREE.GridHelper(100, 40, 0x00ff00, 0x444444); grid.position.y = 0.01; scene.add(grid);
+
+            const boxGeo = new THREE.BoxGeometry(2, 4, 2);
+            const boxMat = new THREE.MeshStandardMaterial({ color: 0xe74c3c });
+            for(let i=0; i<12; i++) {
+                const box = new THREE.Mesh(boxGeo, boxMat);
+                box.position.set((Math.random()-0.5)*50, 2, -Math.random()*40 - 5);
+                scene.add(box);
+                targets.push(box);
+            }
+
+            // [수정] 포인터 락의 대상을 버튼이 포함된 'gameContainer' 전체로 설정하여 클릭 판정 버그를 완전히 방지합니다.
+            controls = new THREE.PointerLockControls(camera, document.getElementById("gameContainer"));
+            scene.add(controls.getObject());
+
+            const onKeyDown = (e) => {
+                if (!controls.isLocked) return;
+                switch (e.code) {
+                    case 'KeyW': moveForward = true; break;
+                    case 'KeyA': moveLeft = true; break;
+                    case 'KeyS': moveBackward = true; break;
+                    case 'KeyD': moveRight = true; break;
+                    case 'Digit1': switchWeapon(1); break;
+                    case 'Digit2': switchWeapon(2); break;
+                    case 'Digit3': switchWeapon(3); break;
+                    case 'Space': 
+                        e.preventDefault();
+                        fireActiveWeapon(); 
+                        break;
+                }
+            };
+
+            const onKeyUp = (e) => {
+                switch (e.code) {
+                    case 'KeyW': moveForward = false; break;
+                    case 'KeyA': moveLeft = false; break;
+                    case 'KeyS': moveBackward = false; break;
+                    case 'KeyD': moveRight = false; break;
+                }
+            };
+
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+
+            // [수정] 게임이 활성화되면 메뉴를 숨기고 스택을 완전히 비웁니다.
+            controls.addEventListener('lock', () => { 
+                menuOverlay.style.display = "none"; 
+                menuStack = []; 
+                renderStackVisual(); 
+                gameStatus.innerHTML = `🟢 <b>[게임 진행 중]</b> 이동: W,A,S,D | 사격: 스페이스바 | 무기변경: 1, 2, 3 | <b>메뉴: ESC</b>`;
+            });
+
+            // [수정] ESC를 눌러 마우스 고정이 풀리면 그때 비로소 'pause' 메뉴 스택을 푸시하여 화면에 띄웁니다.
+            controls.addEventListener('unlock', () => { 
+                gameStatus.innerHTML = `🔴 <b>[일시 정지]</b> 대기 중... 화면을 클릭하거나 버튼을 누르면 재개됩니다.`;
+                if (menuStack.length === 0) {
+                    pushMenu("pause");
+                }
+            });
+
+            // 초기 대기 상태에서 화면을 클릭하면 게임이 시작되도록 설정
+            document.getElementById("canvas3d").addEventListener('click', () => { 
+                if(menuStack.length === 0) controls.lock(); 
+            });
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            const container = document.getElementById("canvas3d");
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+
+            window.addEventListener('resize', () => {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+        }
+
+        function switchWeapon(type) {
+            currentWeapon = type;
+            document.querySelectorAll('.weapon-slot').forEach(slot => slot.classList.remove('active'));
+            document.getElementById('slot' + type).classList.add('active');
+        }
+
+        function fireActiveWeapon() {
+            const currentTime = performance.now();
+            let bulletGeo, bulletMat, speed, typeStr;
+
+            if (currentWeapon === 1) {
+                if (currentTime - lastStoneShotTime < 1000) return; 
+                lastStoneShotTime = currentTime;
+                bulletGeo = new THREE.DodecahedronGeometry(0.5); 
+                bulletMat = new THREE.MeshStandardMaterial({ color: 0x7f8c8d, roughness: 0.9 });
+                speed = 25; 
+                typeStr = "stone";
+            } 
+            else if (currentWeapon === 2) {
+                bulletGeo = new THREE.SphereGeometry(0.15, 8, 8);
+                bulletMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+                speed = 60; 
+                typeStr = "normal";
+            } 
+            else if (currentWeapon === 3) {
+                bulletGeo = new THREE.CylinderGeometry(0.15, 0.15, 1.0, 8); 
+                bulletMat = new THREE.MeshBasicMaterial({ color: 0xe67e22 });
+                speed = 100; 
+                typeStr = "missile";
+            }
+
+            const bulletMesh = new THREE.Mesh(bulletGeo, bulletMat);
+            bulletMesh.position.copy(camera.position);
+            
+            if (currentWeapon === 3) {
+                bulletMesh.rotation.copy(camera.rotation);
+                bulletMesh.rotation.x += Math.PI / 2; 
+            }
+
+            scene.add(bulletMesh);
+
+            const bulletDir = new THREE.Vector3();
+            camera.getWorldDirection(bulletDir);
+
+            bullets.push({
+                mesh: bulletMesh,
+                direction: bulletDir,
+                speed: speed,
+                type: typeStr,
+                createdAt: currentTime
+            });
+        }
+
+        function createExplosion(position) {
+            const particleCount = 40; 
+            const colors = [0xe74c3c, 0xe67e22, 0xf1c40f, 0xffffff]; 
+
+            for (let i = 0; i < particleCount; i++) {
+                const size = Math.random() * 0.25 + 0.1;
+                const geo = new THREE.SphereGeometry(size, 5, 5);
+                const mat = new THREE.MeshBasicMaterial({
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    transparent: true,
+                    opacity: 1
+                });
+                const mesh = new THREE.Mesh(geo, mat);
+                
+                mesh.position.copy(position);
+                scene.add(mesh);
+
+                const velocity = new THREE.Vector3(
+                    (Math.random() - 0.5) * 15,
+                    (Math.random() - 0.3) * 15, 
+                    (Math.random() - 0.5) * 15
+                );
+
+                particles.push({
+                    mesh: mesh,
+                    velocity: velocity,
+                    life: 1.0 
+                });
+            }
+        }
+
+        function animate3D() {
+            requestAnimationFrame(animate3D);
+            const time = performance.now();
+            const delta = (time - prevTime) / 1000;
+
+            if (controls.isLocked === true) {
+                velocity.x -= velocity.x * 10.0 * delta; velocity.z -= velocity.z * 10.0 * delta;
+                direction.z = Number(moveForward) - Number(moveBackward); direction.x = Number(moveRight) - Number(moveLeft);
+                direction.normalize();
+
+                if (moveForward || moveBackward) velocity.z -= direction.z * 400.0 * delta;
+                if (moveLeft || moveRight) velocity.x -= direction.x * 400.0 * delta;
+
+                controls.moveRight(-velocity.x * delta); controls.moveForward(-velocity.z * delta);
+
+                for (let i = bullets.length - 1; i >= 0; i--) {
+                    const bullet = bullets[i];
+                    bullet.mesh.position.addScaledVector(bullet.direction, bullet.speed * delta);
+
+                    if (time - bullet.createdAt > 2000) {
+                        scene.remove(bullet.mesh); bullets.splice(i, 1); continue;
+                    }
+
+                    let hit = false;
+                    for (let j = 0; j < targets.length; j++) {
+                        const target = targets[j];
+                        const distXZ = Math.sqrt(Math.pow(bullet.mesh.position.x - target.position.x, 2) + Math.pow(bullet.mesh.position.z - target.position.z, 2));
+                        const distY = Math.abs(bullet.mesh.position.y - target.position.y);
+
+                        if (distXZ < 1.8 && distY < 2.5) {
+                            hit = true;
+
+                            if (bullet.type === "missile") {
+                                createExplosion(bullet.mesh.position);
+                                targets.forEach(t => {
+                                    const expDist = bullet.mesh.position.distanceTo(t.position);
+                                    if (expDist < 16) { 
+                                        t.position.set((Math.random() - 0.5) * 50, 2, -Math.random() * 40 - 5);
+                                    }
+                                });
+                            } else {
+                                target.position.set((Math.random() - 0.5) * 50, 2, -Math.random() * 40 - 5);
+                            }
+
+                            scene.remove(bullet.mesh);
+                            bullets.splice(i, 1);
+                            break;
+                        }
+                    }
+                    if (hit) continue;
+                }
+
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const p = particles[i];
+                    p.mesh.position.addScaledVector(p.velocity, delta);
+                    p.velocity.y -= 9.8 * delta;
+                    p.life -= delta * 1.5; 
+                    p.mesh.material.opacity = p.life;
+                    
+                    if (p.life > 0) {
+                        p.mesh.scale.set(p.life, p.life, p.life);
+                    }
+
+                    if (p.life <= 0) {
+                        scene.remove(p.mesh);
+                        p.mesh.geometry.dispose();
+                        p.mesh.material.dispose();
+                        particles.splice(i, 1);
+                    }
+                }
+            }
+
+            prevTime = time;
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
