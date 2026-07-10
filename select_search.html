@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🧸 하드코어 선택 정렬 크레인 (타임어택)</title>
+    <title>🧸 선택 정렬 크레인 (시각적 적재 버전)</title>
     <style>
         body {
             background-color: #0f172a;
@@ -18,10 +18,10 @@
         }
 
         h1 {
-            color: #ec4899;
+            color: #38bdf8;
             margin: 5px 0;
             font-size: 26px;
-            text-shadow: 0 0 10px rgba(236, 72, 153, 0.3);
+            text-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
         }
 
         .subtitle {
@@ -77,10 +77,10 @@
         }
 
         .hud-value {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: bold;
-            font-family: monospace;
-            line-height: 1.5;
+            font-family: sans-serif;
+            line-height: 1.6;
         }
 
         .timer-display {
@@ -101,14 +101,14 @@
             max-height: 150px;
             overflow-y: auto;
             font-family: monospace;
-            font-size: 12px;
+            font-size: 11px;
         }
 
         .log-item {
             padding: 5px 6px;
             border-radius: 4px;
             background-color: #1e293b;
-            border-left: 4px solid #ec4899;
+            border-left: 4px solid #38bdf8;
         }
 
         .controls-guide {
@@ -126,8 +126,8 @@
 </head>
 <body>
 
-    <h1>⏱️ 선택 정렬 타임어택 크레인</h1>
-    <div class="subtitle">모든 인형을 순서대로 꺼낼 때까지 타이머가 작동합니다. 가장 빠른 정렬 기록을 달성해 보세요!</div>
+    <h1>⏱️ 선택 정렬 & 시각적 적재 크레인</h1>
+    <div class="subtitle">선택된 최솟값들이 왼쪽 수집함에 오름차순 탑으로 차곡차곡 빌드됩니다!</div>
 
     <div class="game-layout">
         <div class="screen-container">
@@ -140,27 +140,29 @@
                 <div id="timer-hud" class="timer-display">00:00.00</div>
             </div>
 
-            <div class="hud-box" style="border-color: #ec4899;">
-                <div class="hud-title">⭐ 정렬 가이드 규칙</div>
-                <div id="rule-hud" class="hud-value" style="color: #f472b6;">
-                    • <span style="color:#38bdf8; font-weight:bold;">Spacebar</span>: 인형 값을 잠시 확인<br>
-                    • <span style="color:#facc15; font-weight:bold;">▲ (위 방향키)</span>: 최솟값 인형을 획득
+            <div class="hud-box" style="border-color: #38bdf8;">
+                <div class="hud-title">⭐ 알고리즘 시각화 규칙</div>
+                <div id="rule-hud" class="hud-value" style="color: #e2e8f0;">
+                    1. <span style="color:#38bdf8; font-weight:bold;">순차 검색(▼)</span>으로 상자 안의 숫자를 파악합니다.<br>
+                    2. 가장 작은 숫자를 찾아 <span style="color:#facc15; font-weight:bold;">획득(▲)</span>합니다.<br>
+                    3. 성공하면 왼쪽 수집함에 아래부터 <span style="color:#22c55e; font-weight:bold;">오름차순으로 적재</span>됩니다!
                 </div>
             </div>
 
             <div class="hud-box" style="flex-grow: 1;">
-                <div class="hud-title">💻 정렬 스캔 로그</div>
+                <div class="hud-title">💻 알고리즘 실행 로그</div>
                 <div class="memory-log" id="memory-log">
-                    <div style="color: #64748b;">이동 후 키를 눌러 작동하세요...</div>
+                    <div style="color: #64748b;">상자 위로 이동해 순차 검색을 시작하세요.</div>
                 </div>
             </div>
         </div>
     </div>
 
     <div class="controls-guide">
-        <div>🕹️ 이동: <span class="btn-key">◀</span> <span class="btn-key">▶</span> (또는 A, D)</div>
-        <div>🔍 값 확인: <span class="btn-key">Spacebar</span> | 🏗️ 인형 획득: <span class="btn-key">▲ (위 방향키)</span></div>
-        <div>🔄 새 게임(리셋): <span class="btn-key">R</span> 키</div>
+        <div>🕹️ 이동: <span class="btn-key">◀</span> <span class="btn-key">▶</span> (A, D)</div>
+        <div>🔍 순차 검색: <span class="btn-key">▼ (아래 방향키)</span> 또는 <span class="btn-key">S</span></div>
+        <div>🏗️ 최솟값 획득: <span class="btn-key">▲ (위 방향키)</span> 또는 <span class="btn-key">W</span></div>
+        <div>🔄 새 게임: <span class="btn-key">R</span> 키</div>
     </div>
 
     <script>
@@ -171,19 +173,18 @@
         let statusMessage = "";
         let messageColor = "#ffffff";
 
-        // 타이머 관련 변수
         let startTime = 0;
         let elapsedTime = 0;
         let timerInterval = null;
         let finalTimeStr = "";
 
         let claw = {
-            x: 100,
+            x: 120,
             y: 60,
             baseY: 60,
             state: 'idle', 
-            mode: 'scan',  
-            speed: 5,
+            mode: 'scan', 
+            speed: 6,
             targetBoxIdx: -1
         };
 
@@ -194,13 +195,15 @@
 
         window.addEventListener('keydown', (e) => {
             keys[e.key.toLowerCase()] = true;
-            if (e.key === ' ' || e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') e.preventDefault();
+            if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 's'].includes(e.key.toLowerCase())) {
+                e.preventDefault();
+            }
             
             if (claw.state === 'idle' && !isGameOver) {
-                if (e.key === ' ') {
+                if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') {
                     claw.mode = 'scan';
                     claw.state = 'dropping';
-                } else if (e.key === 'ArrowUp') {
+                } else if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') {
                     claw.mode = 'grab';
                     claw.state = 'dropping';
                 }
@@ -217,12 +220,7 @@
             let minutes = Math.floor(totalSeconds / 60);
             let seconds = Math.floor(totalSeconds % 60);
             let centiseconds = Math.floor((ms % 1000) / 10);
-
-            let minStr = minutes.toString().padStart(2, '0');
-            let secStr = seconds.toString().padStart(2, '0');
-            let csStr = centiseconds.toString().padStart(2, '0');
-
-            return `${minStr}:${secStr}.${csStr}`;
+            return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${centiseconds.toString().padStart(2, '0')}`;
         }
 
         function startTimer() {
@@ -244,14 +242,14 @@
             finalTimeStr = "";
             
             document.getElementById('timer-hud').innerText = "00:00.00";
-            startTimer(); // 게임 초기화 시 타이머 자동 즉시 시작
+            startTimer();
 
-            claw.x = 100;
+            claw.x = 120;
             claw.y = 60;
             claw.state = 'idle';
             claw.targetBoxIdx = -1;
 
-            document.getElementById('memory-log').innerHTML = '<div style="color: #64748b;">작동을 시작하여 최솟값을 추적하세요!</div>';
+            document.getElementById('memory-log').innerHTML = '<div style="color: #64748b;">[Round 1] 하단 상자들을 순차 검색하여 최솟값을 탐색하세요.</div>';
 
             let pool = [];
             while(pool.length < 6) {
@@ -261,8 +259,8 @@
 
             boxes = [];
             const boxWidth = 65;
-            const gap = 15;
-            const startX = 140; 
+            const gap = 12;
+            const startX = 150; // 수집함 공간 확보를 위해 시작 가로 위치 소폭 조정
 
             for (let i = 0; i < pool.length; i++) {
                 boxes.push({
@@ -272,9 +270,9 @@
                     x: startX + i * (boxWidth + gap) + boxWidth / 2,
                     y: 390,
                     width: boxWidth,
-                    height: 65,
-                    isInspected: false,
-                    isSorted: false      
+                    height: 55, // 탑 쌓기 밸런스를 위해 높이 최적화
+                    isSorted: false,
+                    isInspected: false 
                 });
             }
         }
@@ -295,7 +293,8 @@
             if (claw.state === 'idle') {
                 if (keys['arrowleft'] || keys['a']) claw.x -= 4;
                 if (keys['arrowright'] || keys['d']) claw.x += 4;
-                if (claw.x < 30) claw.x = 30;
+                // 왼쪽 수집함 중심 위치(50)까지 이동 가능하도록 리미트 설정
+                if (claw.x < 50) claw.x = 50;
                 if (claw.x > canvas.width - 30) claw.x = canvas.width - 30;
             }
 
@@ -319,12 +318,12 @@
                         let targetBox = boxes[closestIdx];
                         
                         if (claw.mode === 'scan') {
-                            claw.targetBoxIdx = -1; 
                             targetBox.isInspected = true;
+                            claw.targetBoxIdx = -1;
                             claw.state = 'retrieving';
                             
                             const logBox = document.getElementById('memory-log');
-                            logBox.innerHTML = `<div class="log-item" style="color:#38bdf8; border-left-color:#38bdf8;">🔍 [임시 스캔] 해당 인형 숫자는 '${targetBox.value}' 입니다.</div>` + logBox.innerHTML;
+                            logBox.innerHTML = `<div class="log-item" style="color:#38bdf8; border-left-color:#38bdf8;">🔍 [순차 검색] 값 확인 -> [ ${targetBox.value} ]</div>` + logBox.innerHTML;
                         } 
                         else if (claw.mode === 'grab') {
                             let currentMin = getActualMinimumValue();
@@ -333,11 +332,14 @@
                                 claw.targetBoxIdx = closestIdx;
                                 targetBox.isInspected = true;
                                 claw.state = 'retrieving';
+                                const logBox = document.getElementById('memory-log');
+                                logBox.innerHTML = `<div class="log-item" style="color:#22c55e; border-left-color:#22c55e;">🎯 [선택 성공] 최솟값 '${targetBox.value}' 뽑기 완료!</div>` + logBox.innerHTML;
                             } else {
+                                targetBox.isInspected = true;
                                 claw.targetBoxIdx = -1;
                                 claw.state = 'retrieving';
                                 const logBox = document.getElementById('memory-log');
-                                logBox.innerHTML = `<div class="log-item" style="color:#f43f5e; border-left-color:#f43f5e;">❌ 획득 거부: 필드에 더 작은 숫자가 존재합니다!</div>` + logBox.innerHTML;
+                                logBox.innerHTML = `<div class="log-item" style="color:#f43f5e; border-left-color:#f43f5e;">❌ [알고리즘 오류] '${targetBox.value}'보다 작은 값이 존재합니다!</div>` + logBox.innerHTML;
                             }
                         }
                     } else {
@@ -349,13 +351,11 @@
             else if (claw.state === 'retrieving') {
                 claw.y -= claw.speed;
                 if (claw.targetBoxIdx !== -1) {
-                    boxes[claw.targetBoxIdx].y = claw.y + 30;
+                    boxes[claw.targetBoxIdx].y = claw.y + 25;
                 }
 
                 if (claw.y <= claw.baseY) {
                     claw.y = claw.baseY;
-                    boxes.forEach(b => b.isInspected = false);
-
                     if (claw.targetBoxIdx !== -1) {
                         claw.state = 'moving_to_drop';
                     } else {
@@ -372,23 +372,30 @@
                 if (claw.x <= 50) {
                     claw.x = 50;
                     let droppedBox = boxes[claw.targetBoxIdx];
+                    
+                    // 🔥 [핵심 적재 변경] : 사라지지 않고 수집함 내 고유의 적재 층수(Y값)로 안착시킵니다.
+                    droppedBox.x = 50;
+                    droppedBox.y = 395 - (sortedCount * 58); // 아래에서부터 누적해서 쌓아올림
                     droppedBox.isSorted = true;
-                    droppedBox.isInspected = false;
-                    droppedBox.y = 999; 
-
-                    const logBox = document.getElementById('memory-log');
-                    logBox.innerHTML = `<div class="log-item" style="color:#4ade80; border-left-color:#4ade80;">✅ [적재 완료] 최솟값 '${droppedBox.value}' 분리 성공!</div>` + logBox.innerHTML;
 
                     sortedCount++;
                     claw.targetBoxIdx = -1;
                     claw.state = 'idle';
 
+                    const logBox = document.getElementById('memory-log');
+                    logBox.innerHTML = `<div class="log-item" style="color:#a855f7; border-left-color:#a855f7;">📦 [수집함 적재] 최솟값 '${droppedBox.value}' 탑 쌓기 성공! (남은 상자 재봉인)</div>` + logBox.innerHTML;
+
                     if (sortedCount === boxes.length) {
                         isGameOver = true;
-                        clearInterval(timerInterval); // 클리어 시 타이머 일시정지(기록 박제)
+                        clearInterval(timerInterval);
                         finalTimeStr = formatTime(elapsedTime);
                         statusMessage = `정렬 완료! 총 소요 시간은 [ ${finalTimeStr} ] 입니다.`;
-                        messageColor = "#22c55e";
+                        messageColor = "#38bdf8";
+                    } else {
+                        boxes.forEach(b => {
+                            if (!b.isSorted) b.isInspected = false;
+                        });
+                        logBox.innerHTML = `<div class="log-item" style="color:#e2e8f0; border-left-color:#64748b;">🔄 [Round ${sortedCount + 1}] 다음 최솟값을 순차 검색하세요!</div>` + logBox.innerHTML;
                     }
                 }
             }
@@ -397,20 +404,30 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            ctx.fillStyle = "#1e293b"; ctx.fillRect(10, 340, 80, 100);
-            ctx.strokeStyle = "#ec4899"; ctx.lineWidth = 3; ctx.strokeRect(10, 340, 80, 100);
-            ctx.fillStyle = "#ec4899"; ctx.font = "bold 12px sans-serif"; ctx.textAlign = "center";
-            ctx.fillText("배출구", 50, 395);
+            // 💎 개선된 왼쪽 세로형 '정렬 수집함' Glass UI
+            ctx.fillStyle = "rgba(30, 41, 59, 0.5)"; ctx.fillRect(15, 80, 70, 350);
+            ctx.strokeStyle = "#a855f7"; ctx.lineWidth = 3; ctx.strokeRect(15, 80, 70, 350);
+            
+            // 유리 반사선 효과
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.1)"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(22, 90); ctx.lineTo(22, 420); ctx.stroke();
 
+            ctx.fillStyle = "#a855f7"; ctx.font = "bold 11px sans-serif"; ctx.textAlign = "center";
+            ctx.fillText("오름차순 탑", 50, 73);
+
+            // 상단 레일
             ctx.fillStyle = "#1e293b"; ctx.fillRect(0, 0, canvas.width, 40);
             ctx.strokeStyle = "#475569"; ctx.lineWidth = 6;
             ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(canvas.width, 40); ctx.stroke();
 
+            // 집게 와이어
             ctx.strokeStyle = "#cbd5e1"; ctx.lineWidth = 3;
             ctx.beginPath(); ctx.moveTo(claw.x, 40); ctx.lineTo(claw.x, claw.y); ctx.stroke();
 
+            // 집게 본체
             ctx.fillStyle = "#94a3b8"; ctx.fillRect(claw.x - 12, claw.y - 6, 24, 12);
 
+            // 집게 팔
             ctx.strokeStyle = "#e2e8f0"; ctx.lineWidth = 4;
             let isOpen = (claw.targetBoxIdx === -1 && claw.state !== 'retrieving' && claw.state !== 'moving_to_drop') ? 0 : -6;
             ctx.beginPath(); ctx.moveTo(claw.x - 10, claw.y + 6);
@@ -418,43 +435,58 @@
             ctx.beginPath(); ctx.moveTo(claw.x + 10, claw.y + 6);
             ctx.quadraticCurveTo(claw.x + 22 + isOpen, claw.y + 20, claw.x + 12, claw.y + 32); ctx.stroke();
 
+            // 상자 및 인형 렌더링
             for (let box of boxes) {
-                if (box.isSorted) continue;
+                // 🔥 [정렬 완료 상태 리뉴얼] : 정렬이 완료된 상자는 왼쪽에 고정되어 상시 노출 상태로 그려짐
+                if (box.isSorted) {
+                    ctx.fillStyle = "#020617"; ctx.fillRect(box.x - box.width/2, box.y - box.height/2, box.width, box.height);
+                    ctx.strokeStyle = "#22c55e"; ctx.lineWidth = 2;
+                    ctx.strokeRect(box.x - box.width/2, box.y - box.height/2, box.width, box.height);
 
+                    ctx.font = "20px sans-serif"; ctx.textAlign = "center";
+                    ctx.fillText(box.emoji, box.x, box.y - 4);
+
+                    ctx.fillStyle = "#22c55e"; ctx.font = "bold 13px monospace";
+                    ctx.fillText(box.value, box.x, box.y + 18);
+                    continue;
+                }
+
+                // 미정렬 상태 상자들
                 ctx.fillStyle = "#020617"; ctx.fillRect(box.x - box.width/2, box.y - box.height/2, box.width, box.height);
-                ctx.strokeStyle = box.isInspected ? "#ec4899" : "#475569"; ctx.lineWidth = 2;
+                ctx.strokeStyle = box.isInspected ? "#38bdf8" : "#475569"; ctx.lineWidth = box.isInspected ? 3 : 2;
                 ctx.strokeRect(box.x - box.width/2, box.y - box.height/2, box.width, box.height);
 
-                if (box.isInspected || (claw.state === 'dropping' && Math.abs(claw.x - box.x) < 20 && claw.y >= 350)) {
+                if (box.isInspected || box.id === claw.targetBoxIdx) {
                     ctx.font = "24px sans-serif"; ctx.textAlign = "center";
                     ctx.fillText(box.emoji, box.x, box.y - 4);
 
                     ctx.fillStyle = "#facc15"; ctx.font = "bold 15px monospace";
-                    ctx.fillText(box.value, box.x, box.y + 22);
+                    ctx.fillText(box.value, box.x, box.y + 20);
                 } else {
                     ctx.fillStyle = "#64748b"; ctx.font = "bold 20px monospace"; ctx.textAlign = "center";
                     ctx.fillText("?", box.x, box.y + 6);
                 }
             }
 
+            // 하단 바닥선
             ctx.strokeStyle = "#334155"; ctx.lineWidth = 4;
             ctx.beginPath(); ctx.moveTo(0, 430); ctx.lineTo(canvas.width, 430); ctx.stroke();
 
-            // 게임 오버(성공) 전광판 연출 변경
+            // 게임 클리어 전광판
             if (isGameOver) {
                 ctx.fillStyle = "rgba(2, 6, 23, 0.95)";
                 ctx.fillRect(40, 130, canvas.width - 80, 180);
                 ctx.strokeStyle = messageColor; ctx.lineWidth = 3;
                 ctx.strokeRect(40, 130, canvas.width - 80, 180);
 
-                ctx.textAlign = "center"; ctx.fillStyle = messageColor; ctx.font = "bold 26px sans-serif";
-                ctx.fillText("🎯 RECORD BROKEN!", canvas.width / 2, 185);
+                ctx.textAlign = "center"; ctx.fillStyle = messageColor; ctx.font = "bold 24px sans-serif";
+                ctx.fillText("🎉 SELECTION SORT COMPLETE!", canvas.width / 2, 185);
 
                 ctx.fillStyle = "#ffffff"; ctx.font = "bold 15px sans-serif";
                 ctx.fillText(statusMessage, canvas.width / 2, 230);
 
                 ctx.fillStyle = "#94a3b8"; ctx.font = "13px sans-serif";
-                ctx.fillText("새 매치로 다음 주자와 배틀하려면 'R' 키를 누르세요.", canvas.width / 2, 275);
+                ctx.fillText("새 알고리즘 매치를 시작하려면 'R' 키를 누르세요.", canvas.width / 2, 275);
             }
         }
 
