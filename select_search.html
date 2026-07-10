@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧸 하드코어 선택 정렬 크레인 (타임어택)</title>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: 'Malgun Gothic', sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            user-select: none;
+        }
+
+        h1 {
+            color: #ec4899;
+            margin: 5px 0;
+            font-size: 26px;
+            text-shadow: 0 0 10px rgba(236, 72, 153, 0.3);
+        }
+
+        .subtitle {
+            color: #94a3b8;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .game-layout {
+            display: flex;
+            gap: 20px;
+            background-color: #1e293b;
+            padding: 20px;
+            border-radius: 16px;
+            border: 4px solid #475569;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+
+        .screen-container {
+            position: relative;
+            width: 600px;
+            height: 480px;
+            border-radius: 8px;
+            background-color: #0f172a;
+            overflow: hidden;
+            border: 3px solid #64748b;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .side-panel {
+            width: 260px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .hud-box {
+            background-color: #020617;
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid #475569;
+        }
+
+        .hud-title {
+            font-size: 11px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+            font-weight: bold;
+        }
+
+        .hud-value {
+            font-size: 14px;
+            font-weight: bold;
+            font-family: monospace;
+            line-height: 1.5;
+        }
+
+        .timer-display {
+            font-size: 32px;
+            font-family: 'Courier New', Courier, monospace;
+            color: #22c55e;
+            text-align: center;
+            font-weight: bold;
+            letter-spacing: 1px;
+            margin: 5px 0;
+            text-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
+        }
+
+        .memory-log {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .log-item {
+            padding: 5px 6px;
+            border-radius: 4px;
+            background-color: #1e293b;
+            border-left: 4px solid #ec4899;
+        }
+
+        .controls-guide {
+            margin-top: 15px;
+            background-color: #1e293b;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            display: flex;
+            gap: 20px;
+            border: 1px solid #334155;
+        }
+        .btn-key { background-color: #020617; padding: 2px 6px; border-radius: 4px; color: #facc15; font-family: monospace; }
+    </style>
+</head>
+<body>
+
+    <h1>⏱️ 선택 정렬 타임어택 크레인</h1>
+    <div class="subtitle">모든 인형을 순서대로 꺼낼 때까지 타이머가 작동합니다. 가장 빠른 정렬 기록을 달성해 보세요!</div>
+
+    <div class="game-layout">
+        <div class="screen-container">
+            <canvas id="gameCanvas" width="600" height="480"></canvas>
+        </div>
+
+        <div class="side-panel">
+            <div class="hud-box" style="border-color: #22c55e;">
+                <div class="hud-title">⏱️ 현재 경과 시간</div>
+                <div id="timer-hud" class="timer-display">00:00.00</div>
+            </div>
+
+            <div class="hud-box" style="border-color: #ec4899;">
+                <div class="hud-title">⭐ 정렬 가이드 규칙</div>
+                <div id="rule-hud" class="hud-value" style="color: #f472b6;">
+                    • <span style="color:#38bdf8; font-weight:bold;">Spacebar</span>: 인형 값을 잠시 확인<br>
+                    • <span style="color:#facc15; font-weight:bold;">▲ (위 방향키)</span>: 최솟값 인형을 획득
+                </div>
+            </div>
+
+            <div class="hud-box" style="flex-grow: 1;">
+                <div class="hud-title">💻 정렬 스캔 로그</div>
+                <div class="memory-log" id="memory-log">
+                    <div style="color: #64748b;">이동 후 키를 눌러 작동하세요...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls-guide">
+        <div>🕹️ 이동: <span class="btn-key">◀</span> <span class="btn-key">▶</span> (또는 A, D)</div>
+        <div>🔍 값 확인: <span class="btn-key">Spacebar</span> | 🏗️ 인형 획득: <span class="btn-key">▲ (위 방향키)</span></div>
+        <div>🔄 새 게임(리셋): <span class="btn-key">R</span> 키</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let isGameOver = false;
+        let statusMessage = "";
+        let messageColor = "#ffffff";
+
+        // 타이머 관련 변수
+        let startTime = 0;
+        let elapsedTime = 0;
+        let timerInterval = null;
+        let finalTimeStr = "";
+
+        let claw = {
+            x: 100,
+            y: 60,
+            baseY: 60,
+            state: 'idle', 
+            mode: 'scan',  
+            speed: 5,
+            targetBoxIdx: -1
+        };
+
+        const dollEmojis = ['🦊', '🐰', '🐯', '🐱', '🐼', '🐻'];
+        let boxes = [];
+        let sortedCount = 0; 
+        let keys = {};
+
+        window.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            if (e.key === ' ' || e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') e.preventDefault();
+            
+            if (claw.state === 'idle' && !isGameOver) {
+                if (e.key === ' ') {
+                    claw.mode = 'scan';
+                    claw.state = 'dropping';
+                } else if (e.key === 'ArrowUp') {
+                    claw.mode = 'grab';
+                    claw.state = 'dropping';
+                }
+            }
+            if (e.key.toLowerCase() === 'r') initGame();
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+
+        function formatTime(ms) {
+            let totalSeconds = ms / 1000;
+            let minutes = Math.floor(totalSeconds / 60);
+            let seconds = Math.floor(totalSeconds % 60);
+            let centiseconds = Math.floor((ms % 1000) / 10);
+
+            let minStr = minutes.toString().padStart(2, '0');
+            let secStr = seconds.toString().padStart(2, '0');
+            let csStr = centiseconds.toString().padStart(2, '0');
+
+            return `${minStr}:${secStr}.${csStr}`;
+        }
+
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+                if (!isGameOver) {
+                    elapsedTime = Date.now() - startTime;
+                    document.getElementById('timer-hud').innerText = formatTime(elapsedTime);
+                }
+            }, 10);
+        }
+
+        function initGame() {
+            isGameOver = false;
+            statusMessage = "";
+            sortedCount = 0;
+            elapsedTime = 0;
+            finalTimeStr = "";
+            
+            document.getElementById('timer-hud').innerText = "00:00.00";
+            startTimer(); // 게임 초기화 시 타이머 자동 즉시 시작
+
+            claw.x = 100;
+            claw.y = 60;
+            claw.state = 'idle';
+            claw.targetBoxIdx = -1;
+
+            document.getElementById('memory-log').innerHTML = '<div style="color: #64748b;">작동을 시작하여 최솟값을 추적하세요!</div>';
+
+            let pool = [];
+            while(pool.length < 6) {
+                let r = Math.floor(Math.random() * 90) + 10;
+                if(!pool.includes(r)) pool.push(r);
+            }
+
+            boxes = [];
+            const boxWidth = 65;
+            const gap = 15;
+            const startX = 140; 
+
+            for (let i = 0; i < pool.length; i++) {
+                boxes.push({
+                    id: i,
+                    value: pool[i],
+                    emoji: dollEmojis[i % dollEmojis.length],
+                    x: startX + i * (boxWidth + gap) + boxWidth / 2,
+                    y: 390,
+                    width: boxWidth,
+                    height: 65,
+                    isInspected: false,
+                    isSorted: false      
+                });
+            }
+        }
+
+        function getActualMinimumValue() {
+            let minVal = Infinity;
+            for (let b of boxes) {
+                if (!b.isSorted) {
+                    if (b.value < minVal) minVal = b.value;
+                }
+            }
+            return minVal;
+        }
+
+        function update() {
+            if (isGameOver) return;
+
+            if (claw.state === 'idle') {
+                if (keys['arrowleft'] || keys['a']) claw.x -= 4;
+                if (keys['arrowright'] || keys['d']) claw.x += 4;
+                if (claw.x < 30) claw.x = 30;
+                if (claw.x > canvas.width - 30) claw.x = canvas.width - 30;
+            }
+
+            if (claw.state === 'dropping') {
+                claw.y += claw.speed;
+                if (claw.y >= 360) {
+                    let closestIdx = -1;
+                    let minDist = 35;
+
+                    for (let i = 0; i < boxes.length; i++) {
+                        if (!boxes[i].isSorted) {
+                            let dist = Math.abs(claw.x - boxes[i].x);
+                            if (dist < minDist) {
+                                minDist = dist;
+                                closestIdx = i;
+                            }
+                        }
+                    }
+
+                    if (closestIdx !== -1) {
+                        let targetBox = boxes[closestIdx];
+                        
+                        if (claw.mode === 'scan') {
+                            claw.targetBoxIdx = -1; 
+                            targetBox.isInspected = true;
+                            claw.state = 'retrieving';
+                            
+                            const logBox = document.getElementById('memory-log');
+                            logBox.innerHTML = `<div class="log-item" style="color:#38bdf8; border-left-color:#38bdf8;">🔍 [임시 스캔] 해당 인형 숫자는 '${targetBox.value}' 입니다.</div>` + logBox.innerHTML;
+                        } 
+                        else if (claw.mode === 'grab') {
+                            let currentMin = getActualMinimumValue();
+
+                            if (targetBox.value === currentMin) {
+                                claw.targetBoxIdx = closestIdx;
+                                targetBox.isInspected = true;
+                                claw.state = 'retrieving';
+                            } else {
+                                claw.targetBoxIdx = -1;
+                                claw.state = 'retrieving';
+                                const logBox = document.getElementById('memory-log');
+                                logBox.innerHTML = `<div class="log-item" style="color:#f43f5e; border-left-color:#f43f5e;">❌ 획득 거부: 필드에 더 작은 숫자가 존재합니다!</div>` + logBox.innerHTML;
+                            }
+                        }
+                    } else {
+                        claw.targetBoxIdx = -1;
+                        claw.state = 'retrieving';
+                    }
+                }
+            } 
+            else if (claw.state === 'retrieving') {
+                claw.y -= claw.speed;
+                if (claw.targetBoxIdx !== -1) {
+                    boxes[claw.targetBoxIdx].y = claw.y + 30;
+                }
+
+                if (claw.y <= claw.baseY) {
+                    claw.y = claw.baseY;
+                    boxes.forEach(b => b.isInspected = false);
+
+                    if (claw.targetBoxIdx !== -1) {
+                        claw.state = 'moving_to_drop';
+                    } else {
+                        claw.state = 'idle';
+                    }
+                }
+            }
+            else if (claw.state === 'moving_to_drop') {
+                claw.x -= 4; 
+                if (claw.targetBoxIdx !== -1) {
+                    boxes[claw.targetBoxIdx].x = claw.x;
+                }
+
+                if (claw.x <= 50) {
+                    claw.x = 50;
+                    let droppedBox = boxes[claw.targetBoxIdx];
+                    droppedBox.isSorted = true;
+                    droppedBox.isInspected = false;
+                    droppedBox.y = 999; 
+
+                    const logBox = document.getElementById('memory-log');
+                    logBox.innerHTML = `<div class="log-item" style="color:#4ade80; border-left-color:#4ade80;">✅ [적재 완료] 최솟값 '${droppedBox.value}' 분리 성공!</div>` + logBox.innerHTML;
+
+                    sortedCount++;
+                    claw.targetBoxIdx = -1;
+                    claw.state = 'idle';
+
+                    if (sortedCount === boxes.length) {
+                        isGameOver = true;
+                        clearInterval(timerInterval); // 클리어 시 타이머 일시정지(기록 박제)
+                        finalTimeStr = formatTime(elapsedTime);
+                        statusMessage = `정렬 완료! 총 소요 시간은 [ ${finalTimeStr} ] 입니다.`;
+                        messageColor = "#22c55e";
+                    }
+                }
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = "#1e293b"; ctx.fillRect(10, 340, 80, 100);
+            ctx.strokeStyle = "#ec4899"; ctx.lineWidth = 3; ctx.strokeRect(10, 340, 80, 100);
+            ctx.fillStyle = "#ec4899"; ctx.font = "bold 12px sans-serif"; ctx.textAlign = "center";
+            ctx.fillText("배출구", 50, 395);
+
+            ctx.fillStyle = "#1e293b"; ctx.fillRect(0, 0, canvas.width, 40);
+            ctx.strokeStyle = "#475569"; ctx.lineWidth = 6;
+            ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(canvas.width, 40); ctx.stroke();
+
+            ctx.strokeStyle = "#cbd5e1"; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(claw.x, 40); ctx.lineTo(claw.x, claw.y); ctx.stroke();
+
+            ctx.fillStyle = "#94a3b8"; ctx.fillRect(claw.x - 12, claw.y - 6, 24, 12);
+
+            ctx.strokeStyle = "#e2e8f0"; ctx.lineWidth = 4;
+            let isOpen = (claw.targetBoxIdx === -1 && claw.state !== 'retrieving' && claw.state !== 'moving_to_drop') ? 0 : -6;
+            ctx.beginPath(); ctx.moveTo(claw.x - 10, claw.y + 6);
+            ctx.quadraticCurveTo(claw.x - 22 - isOpen, claw.y + 20, claw.x - 12, claw.y + 32); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(claw.x + 10, claw.y + 6);
+            ctx.quadraticCurveTo(claw.x + 22 + isOpen, claw.y + 20, claw.x + 12, claw.y + 32); ctx.stroke();
+
+            for (let box of boxes) {
+                if (box.isSorted) continue;
+
+                ctx.fillStyle = "#020617"; ctx.fillRect(box.x - box.width/2, box.y - box.height/2, box.width, box.height);
+                ctx.strokeStyle = box.isInspected ? "#ec4899" : "#475569"; ctx.lineWidth = 2;
+                ctx.strokeRect(box.x - box.width/2, box.y - box.height/2, box.width, box.height);
+
+                if (box.isInspected || (claw.state === 'dropping' && Math.abs(claw.x - box.x) < 20 && claw.y >= 350)) {
+                    ctx.font = "24px sans-serif"; ctx.textAlign = "center";
+                    ctx.fillText(box.emoji, box.x, box.y - 4);
+
+                    ctx.fillStyle = "#facc15"; ctx.font = "bold 15px monospace";
+                    ctx.fillText(box.value, box.x, box.y + 22);
+                } else {
+                    ctx.fillStyle = "#64748b"; ctx.font = "bold 20px monospace"; ctx.textAlign = "center";
+                    ctx.fillText("?", box.x, box.y + 6);
+                }
+            }
+
+            ctx.strokeStyle = "#334155"; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(0, 430); ctx.lineTo(canvas.width, 430); ctx.stroke();
+
+            // 게임 오버(성공) 전광판 연출 변경
+            if (isGameOver) {
+                ctx.fillStyle = "rgba(2, 6, 23, 0.95)";
+                ctx.fillRect(40, 130, canvas.width - 80, 180);
+                ctx.strokeStyle = messageColor; ctx.lineWidth = 3;
+                ctx.strokeRect(40, 130, canvas.width - 80, 180);
+
+                ctx.textAlign = "center"; ctx.fillStyle = messageColor; ctx.font = "bold 26px sans-serif";
+                ctx.fillText("🎯 RECORD BROKEN!", canvas.width / 2, 185);
+
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 15px sans-serif";
+                ctx.fillText(statusMessage, canvas.width / 2, 230);
+
+                ctx.fillStyle = "#94a3b8"; ctx.font = "13px sans-serif";
+                ctx.fillText("새 매치로 다음 주자와 배틀하려면 'R' 키를 누르세요.", canvas.width / 2, 275);
+            }
+        }
+
+        function mainLoop() {
+            update();
+            draw();
+            requestAnimationFrame(mainLoop);
+        }
+
+        initGame();
+        mainLoop();
+    </script>
+</body>
+</html>
