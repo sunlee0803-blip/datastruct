@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚨 이분 검색: 암호 은폐 데드라인</title>
+    <style>
+        body {
+            background-color: #070a12;
+            color: #f1f5f9;
+            font-family: 'Malgun Gothic', sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            user-select: none;
+        }
+
+        h1 {
+            color: #ef4444;
+            margin: 5px 0;
+            font-size: 26px;
+            text-shadow: 0 0 15px rgba(239, 68, 68, 0.6);
+            animation: pulse 1.5s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from { text-shadow: 0 0 8px rgba(239, 68, 68, 0.4); }
+            to { text-shadow: 0 0 20px rgba(239, 68, 68, 0.8); }
+        }
+
+        .subtitle {
+            color: #94a3b8;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .game-layout {
+            display: flex;
+            gap: 20px;
+            background-color: #0f172a;
+            padding: 20px;
+            border-radius: 16px;
+            border: 4px solid #1e293b;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+        }
+
+        .screen-container {
+            position: relative;
+            width: 640px;
+            height: 400px;
+            border-radius: 8px;
+            background-color: #020617;
+            overflow: hidden;
+            border: 3px solid #334155;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .side-panel {
+            width: 260px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .hud-box {
+            background-color: #020617;
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid #334155;
+        }
+
+        .hud-title {
+            font-size: 11px;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+            font-weight: bold;
+        }
+
+        .target-display {
+            font-size: 26px;
+            font-family: monospace;
+            color: #f43f5e;
+            text-align: center;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(244, 63, 94, 0.3);
+        }
+
+        .timer-display {
+            font-size: 32px;
+            font-family: 'Courier New', monospace;
+            color: #ef4444;
+            text-align: center;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+        }
+
+        .timer-display.warn {
+            animation: blink 0.5s infinite alternate;
+        }
+
+        @keyframes blink {
+            from { opacity: 1; color: #ef4444; }
+            to { opacity: 0.3; color: #f43f5e; }
+        }
+
+        .battery-container {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            margin: 4px 0;
+        }
+
+        .battery-cell {
+            width: 24px;
+            height: 12px;
+            background-color: #22c55e;
+            border-radius: 2px;
+            box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
+        }
+
+        .battery-cell.used {
+            background-color: #334155;
+            box-shadow: none;
+        }
+
+        .memory-log {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-height: 110px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 11px;
+        }
+
+        .log-item {
+            padding: 5px 6px;
+            border-radius: 4px;
+            background-color: #1e293b;
+            border-left: 4px solid #ef4444;
+        }
+
+        .controls-guide {
+            margin-top: 15px;
+            background-color: #0f172a;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            display: flex;
+            gap: 20px;
+            border: 1px solid #1e293b;
+        }
+        .btn-key { background-color: #020617; padding: 2px 6px; border-radius: 4px; color: #facc15; font-family: monospace; }
+    </style>
+</head>
+<body>
+
+    <h1>🚨 시한폭탄 해체: 전율의 레이저 격벽</h1>
+    <div class="subtitle">해체 코드는 베일에 싸여 있습니다. 오직 크레인 피드백(UP/DOWN)으로만 유추하세요!</div>
+
+    <div class="game-layout">
+        <div class="screen-container">
+            <canvas id="gameCanvas" width="640" height="400"></canvas>
+        </div>
+
+        <div class="side-panel">
+            <div class="hud-box" style="border-color: #ef4444;">
+                <div class="hud-title">💥 폭발까지 남은 시간</div>
+                <div id="timer-hud" class="timer-display">40.00s</div>
+            </div>
+
+            <div class="hud-box" style="border-color: #38bdf8;">
+                <div class="hud-title">🎯 탐색 타겟 코드</div>
+                <div id="target-hud" class="target-display">🔒 LOCKED</div>
+            </div>
+
+            <div class="hud-box" style="border-color: #22c55e;">
+                <div class="hud-title">🔋 크레인 동력 배터리</div>
+                <div class="battery-container" id="battery-box">
+                    <div class="battery-cell"></div>
+                    <div class="battery-cell"></div>
+                    <div class="battery-cell"></div>
+                    <div class="battery-cell"></div>
+                    <div class="battery-cell"></div>
+                    <div class="battery-cell"></div>
+                </div>
+            </div>
+
+            <div class="hud-box" style="flex-grow: 1; min-height: 100px;">
+                <div class="hud-title">💻 안전 스캔 범위 로그</div>
+                <div id="range-hud" style="font-size:12px; color:#facc15; font-family:monospace; margin-bottom:6px; font-weight:bold;">
+                    생존 범위: Idx 0 ~ 63
+                </div>
+                <div class="memory-log" id="memory-log">
+                    <div style="color: #64748b;">[시스템 가동] 화면을 클릭하면 센서가 활성화됩니다.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls-guide">
+        <div>🕹️ 이동: <span class="btn-key">◀</span> <span class="btn-key">▶</span> (A, D)</div>
+        <div>🔍 타격 탐색: <span class="btn-key">▼ (아래 방향키)</span> 또는 <span class="btn-key">S</span></div>
+        <div>🔄 시스템 리셋: <span class="btn-key">R</span> 키</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playSound(freq, type, duration, vol=0.1) {
+            try {
+                initAudio();
+                if (!audioCtx) return;
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e) {}
+        }
+
+        let isGameOver = false;
+        let gameStatus = "playing"; 
+        let statusMessage = "";
+
+        let low = 0;
+        let high = 63;
+        let targetValue = 0;
+        let maxChances = 6;
+        let chancesLeft = 6;
+
+        let timeLimit = 40000; 
+        let startTime = 0;
+        let timeLeft = 40000;
+
+        let screenShake = 0;
+
+        let claw = {
+            x: 320,
+            y: 50,
+            baseY: 50,
+            state: 'idle',
+            speed: 10, 
+            scanResult: null
+        };
+
+        let boxes = [];
+        let keys = {};
+
+        // 브라우저 포커스 록을 위한 클릭 이벤트 추가
+        window.addEventListener('click', () => {
+            initAudio();
+        });
+
+        window.addEventListener('keydown', (e) => {
+            initAudio(); 
+            keys[e.key.toLowerCase()] = true;
+            if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 's', 'w'].includes(e.key.toLowerCase())) {
+                e.preventDefault();
+            }
+            
+            if (claw.state === 'idle' && !isGameOver) {
+                if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') {
+                    claw.state = 'dropping';
+                    claw.scanResult = null;
+                    playSound(300, 'square', 0.1);
+                }
+            }
+            if (e.key.toLowerCase() === 'r') initGame();
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+
+        function updateBatteryUI() {
+            const cells = document.querySelectorAll('.battery-cell');
+            cells.forEach((cell, idx) => {
+                if (idx < maxChances - chancesLeft) {
+                    cell.classList.add('used');
+                } else {
+                    cell.classList.remove('used');
+                }
+            });
+        }
+
+        function initGame() {
+            isGameOver = false;
+            gameStatus = "playing";
+            statusMessage = "";
+            low = 0;
+            high = 63;
+            chancesLeft = 6;
+            timeLeft = timeLimit;
+            startTime = Date.now();
+            screenShake = 0;
+            updateBatteryUI();
+
+            claw.x = 320;
+            claw.y = 50;
+            claw.state = 'idle';
+            claw.scanResult = null;
+
+            const targetHud = document.getElementById('target-hud');
+            targetHud.innerText = "🔒 LOCKED";
+            targetHud.style.color = "#f43f5e";
+            targetHud.style.textShadow = "0 0 10px rgba(244, 63, 94, 0.3)";
+
+            document.getElementById('timer-hud').classList.remove('warn');
+            document.getElementById('range-hud').innerText = `생존 범위: Idx ${low} ~ ${high}`;
+            document.getElementById('memory-log').innerHTML = '<div style="color: #64748b;">[블라인드 모드] 정밀 이분 스캔을 연사하세요!</div>';
+
+            boxes = [];
+            let currentVal = Math.floor(Math.random() * 20) + 10;
+            for (let i = 0; i < 64; i++) {
+                currentVal += Math.floor(Math.random() * 5) + 3; 
+                boxes.push({
+                    index: i,
+                    value: currentVal,
+                    isRevealed: false
+                });
+            }
+
+            let randIdx = Math.floor(Math.random() * 50) + 7; 
+            targetValue = boxes[randIdx].value;
+            playSound(600, 'sine', 0.3);
+        }
+
+        function revealTargetHUD(isWin) {
+            const targetHud = document.getElementById('target-hud');
+            targetHud.innerText = `🔓 CODE: ${targetValue}`;
+            if (isWin) {
+                targetHud.style.color = "#22c55e";
+                targetHud.style.textShadow = "0 0 15px rgba(34, 197, 94, 0.6)";
+            } else {
+                targetHud.style.color = "#ef4444";
+                targetHud.style.textShadow = "0 0 15px rgba(239, 68, 68, 0.6)";
+            }
+        }
+
+        function triggerExplosion() {
+            isGameOver = true;
+            gameStatus = "fail";
+            revealTargetHUD(false); 
+            playSound(100, 'sawtooth', 1.5, 0.3);
+            playSound(50, 'sawtooth', 1.2, 0.4);
+            screenShake = 25;
+        }
+
+        function update() {
+            if (isGameOver) return;
+
+            let elapsed = Date.now() - startTime;
+            timeLeft = timeLimit - elapsed;
+
+            const timerHud = document.getElementById('timer-hud');
+            if (timeLeft <= 0) {
+                timeLeft = 0;
+                statusMessage = `⏱️ 타임 오버! 해체 코드를 맞추지 못해 폭탄이 폭발했습니다.`;
+                triggerExplosion();
+            }
+
+            timerHud.innerText = `${(timeLeft / 1000).toFixed(2)}s`;
+            if (timeLeft <= 10000) {
+                timerHud.classList.add('warn');
+                if (Math.floor(timeLeft / 100) % 5 === 0) {
+                    playSound(880, 'sine', 0.05, 0.05); 
+                }
+            }
+
+            if (claw.state === 'idle') {
+                if (keys['arrowleft'] || keys['a']) claw.x -= 7;
+                if (keys['arrowright'] || keys['d']) claw.x += 7;
+
+                let minX = low * 10 + 5;
+                let maxX = high * 10 + 5;
+                if (claw.x < minX) claw.x = minX;
+                if (claw.x > maxX) claw.x = maxX;
+            }
+
+            if (claw.state === 'dropping') {
+                claw.y += claw.speed;
+                if (claw.y >= 310) { 
+                    screenShake = 8; 
+                    let currentIdx = Math.floor(claw.x / 10);
+                    if (currentIdx < 0) currentIdx = 0;
+                    if (currentIdx > 63) currentIdx = 63;
+
+                    let selectedBox = boxes[currentIdx];
+                    selectedBox.isRevealed = true;
+                    chancesLeft--;
+                    updateBatteryUI();
+
+                    const logBox = document.getElementById('memory-log');
+
+                    if (selectedBox.value === targetValue) {
+                        isGameOver = true;
+                        gameStatus = "win";
+                        revealTargetHUD(true); 
+                        claw.scanResult = { type: "MATCH", val: selectedBox.value };
+                        statusMessage = `해체 성공! index [ ${currentIdx} ] 회로 락을 해제했습니다.`;
+                        logBox.innerHTML = `<div class="log-item" style="color:#22c55e; border-left-color:#22c55e;">🎉 CLEAR: 코드가 정확히 매칭되었습니다!</div>` + logBox.innerHTML;
+                        
+                        playSound(523, 'sine', 0.1); setTimeout(() => playSound(659, 'sine', 0.1), 100);
+                        setTimeout(() => playSound(784, 'sine', 0.1), 200); setTimeout(() => playSound(1046, 'sine', 0.3), 300);
+                    } 
+                    else if (selectedBox.value < targetValue) {
+                        claw.scanResult = { type: "UP", val: selectedBox.value };
+                        low = currentIdx + 1;
+                        logBox.innerHTML = `<div class="log-item" style="color:#38bdf8; border-left-color:#38bdf8;">🔼 UP: Idx ${currentIdx} (값 ${selectedBox.value})보다 타겟이 큽니다.</div>` + logBox.innerHTML;
+                        playSound(440, 'triangle', 0.15);
+                    } 
+                    else {
+                        claw.scanResult = { type: "DOWN", val: selectedBox.value };
+                        high = currentIdx - 1;
+                        logBox.innerHTML = `<div class="log-item" style="color:#f43f5e; border-left-color:#f43f5e;">🔽 DOWN: Idx ${currentIdx} (값 ${selectedBox.value})보다 타겟이 작습니다.</div>` + logBox.innerHTML;
+                        playSound(220, 'triangle', 0.15);
+                    }
+
+                    document.getElementById('range-hud').innerText = `생존 범위: Idx ${low} ~ ${high}`;
+
+                    if (!isGameOver && (chancesLeft <= 0 || low > high)) {
+                        statusMessage = `🔋 배터리 방전! 탐색 횟수 초과로 폭발이 시작됩니다.`;
+                        triggerExplosion();
+                    }
+
+                    claw.state = 'retrieving';
+                }
+            } 
+            else if (claw.state === 'retrieving') {
+                claw.y -= claw.speed;
+                if (claw.y <= claw.baseY) {
+                    claw.y = claw.baseY;
+                    claw.state = 'idle';
+                }
+            }
+
+            if (screenShake > 0) screenShake *= 0.85;
+            if (screenShake < 0.5) screenShake = 0;
+        }
+
+        function draw() {
+            ctx.save();
+            if (screenShake > 0) {
+                let dx = (Math.random() - 0.5) * screenShake;
+                let dy = (Math.random() - 0.5) * screenShake;
+                ctx.translate(dx, dy);
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (timeLeft <= 10000 && !isGameOver) {
+                let alpha = (Math.sin(Date.now() / 100) + 1) * 0.04;
+                ctx.fillStyle = `rgba(239, 68, 68, ${alpha})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            for (let i = 0; i < 64; i++) {
+                let box = boxes[i];
+                let isEliminated = (i < low || i > high); 
+
+                if (isEliminated) {
+                    ctx.fillStyle = "#090d16";
+                } else {
+                    ctx.fillStyle = box.isRevealed ? "#1e293b" : "#1e293b";
+                }
+                ctx.fillRect(i * 10, 310, 9, 50);
+
+                ctx.strokeStyle = isEliminated ? "#1e293b" : (box.isRevealed ? "#38bdf8" : "#475569");
+                ctx.lineWidth = 1;
+                ctx.strokeRect(i * 10, 310, 9, 50);
+
+                if (box.isRevealed && !isEliminated) {
+                    ctx.fillStyle = "#facc15";
+                    ctx.fillRect(i * 10 + 3, 332, 4, 4);
+                }
+            }
+
+            if (low > 0) {
+                ctx.fillStyle = "rgba(239, 68, 68, 0.2)";
+                ctx.fillRect(0, 310, low * 10, 50);
+                
+                ctx.strokeStyle = "#ef4444"; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.moveTo(low * 10, 40); ctx.lineTo(low * 10, 360); ctx.stroke();
+                
+                if (Math.random() > 0.5 && !isGameOver) {
+                    ctx.fillStyle = "#facc15";
+                    ctx.fillRect(low * 10 - 2, 310 + Math.random() * 50, 4, 4);
+                }
+            }
+            if (high < 63) {
+                let rightX = (high + 1) * 10;
+                ctx.fillStyle = "rgba(239, 68, 68, 0.2)";
+                ctx.fillRect(rightX, 310, canvas.width - rightX, 50);
+
+                ctx.strokeStyle = "#ef4444"; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.moveTo(rightX, 40); ctx.lineTo(rightX, 360); ctx.stroke();
+
+                if (Math.random() > 0.5 && !isGameOver) {
+                    ctx.fillStyle = "#facc15";
+                    ctx.fillRect(rightX - 2, 310 + Math.random() * 50, 4, 4);
+                }
+            }
+
+            ctx.strokeStyle = "rgba(56, 189, 248, 0.2)"; ctx.lineWidth = 1;
+            ctx.setLineDash([2, 4]);
+            ctx.beginPath(); ctx.moveTo(claw.x, 40); ctx.lineTo(claw.x, 310); ctx.stroke();
+            ctx.setLineDash([]); 
+
+            // 🔥 버그 수정 완료: stroke() -> ctx.stroke()
+            ctx.fillStyle = "#0f172a"; ctx.fillRect(0, 0, canvas.width, 40);
+            ctx.strokeStyle = "#1e293b"; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(canvas.width, 40); ctx.stroke();
+
+            ctx.fillStyle = "#94a3b8"; ctx.font = "bold 10px monospace"; ctx.textAlign = "center";
+            ctx.fillText("Idx 0", 20, 24);
+            ctx.fillText("Idx 16", 165, 24);
+            ctx.fillText("Idx 32", 325, 24);
+            ctx.fillText("Idx 48", 485, 24);
+            ctx.fillText("Idx 63", 620, 24);
+
+            ctx.strokeStyle = "#cbd5e1"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(claw.x, 40); ctx.lineTo(claw.x, claw.y); ctx.stroke();
+            ctx.fillStyle = "#ef4444"; ctx.fillRect(claw.x - 6, claw.y - 4, 12, 8);
+
+            if (claw.scanResult) {
+                ctx.save();
+                ctx.textAlign = "center";
+                if (claw.scanResult.type === "MATCH") {
+                    ctx.fillStyle = "#22c55e"; ctx.font = "bold 20px monospace";
+                    ctx.fillText(`MATCH: ${claw.scanResult.val}`, claw.x, claw.y - 15);
+                } else {
+                    ctx.fillStyle = claw.scanResult.type === "UP" ? "#38bdf8" : "#f43f5e";
+                    ctx.font = "bold 15px monospace";
+                    ctx.fillText(`${claw.scanResult.val} ➔ ${claw.scanResult.type}`, claw.x, claw.y - 15);
+                }
+                ctx.restore();
+            }
+
+            if (isGameOver) {
+                ctx.fillStyle = "rgba(2, 6, 17, 0.95)";
+                ctx.fillRect(40, 110, canvas.width - 80, 160);
+                
+                let accentColor = (gameStatus === "win") ? "#22c55e" : "#ef4444";
+                ctx.strokeStyle = accentColor; ctx.lineWidth = 3;
+                ctx.strokeRect(40, 110, canvas.width - 80, 160);
+
+                ctx.textAlign = "center";
+                ctx.fillStyle = accentColor; ctx.font = "bold 24px sans-serif";
+                ctx.fillText(gameStatus === "win" ? "🎯 MISSION ACCOMPLISHED" : "💥 CORE EXPLODED", canvas.width / 2, 155);
+
+                ctx.fillStyle = "#f8fafc"; ctx.font = "14px sans-serif";
+                ctx.fillText(statusMessage, canvas.width / 2, 195);
+                
+                ctx.fillStyle = "#facc15"; ctx.font = "bold 14px monospace";
+                ctx.fillText(`[ 실제 정답 코드: ${targetValue} ]`, canvas.width / 2, 220);
+
+                ctx.fillStyle = "#64748b"; ctx.font = "12px sans-serif";
+                ctx.fillText("재부팅 후 다시 도전하시려면 키보드 'R' 키를 누르세요.", canvas.width / 2, 240);
+            }
+
+            ctx.restore();
+        }
+
+        function mainLoop() {
+            update();
+            draw();
+            requestAnimationFrame(mainLoop);
+        }
+
+        initGame();
+        mainLoop();
+    </script>
+</body>
+</html>
